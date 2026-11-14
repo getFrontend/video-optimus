@@ -9,8 +9,72 @@
     />
     <meta name="theme-color" content="#f6f6fc" />
     <title>Video Optimus</title>
+    <style>
+      html,
+      body {
+        min-width: 320px;
+        min-height: 100%;
+        margin: 0;
+        background: #f6f6fc;
+      }
+
+      #boot-screen {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        background: #f6f6fc;
+      }
+
+      .boot-mark-wrap {
+        position: relative;
+        display: grid;
+        width: 76px;
+        height: 76px;
+        place-items: center;
+        border: 1px solid #e4e1f2;
+        border-radius: 50%;
+        background: #fbfaff;
+      }
+
+      .boot-mark {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+      }
+
+      .boot-spinner {
+        position: absolute;
+        width: 76px;
+        height: 76px;
+        border: 1.5px solid transparent;
+        border-top-color: #5846c8;
+        border-right-color: #5846c84d;
+        border-radius: 50%;
+        animation: boot-spin 1.15s linear infinite;
+      }
+
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .boot-spinner {
+          animation: none;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="boot-screen" role="status" aria-label="Video Optimus">
+      <div class="boot-mark-wrap" aria-hidden="true">
+        <span class="boot-spinner"></span>
+        <img class="boot-mark" src="./assets/brand/videooptimus-mark.png" alt="" />
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

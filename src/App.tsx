@@ -30,6 +30,7 @@ export default function App() {
     (settingsOpen ? settingsCloseRef : settingsToggleRef).current?.focus();
   }, [settingsOpen]);
   const jobs = optimizer.snapshot?.jobs ?? [];
+  const checkingRuntime = optimizer.checkingRuntime && optimizer.desktop;
   const isEmpty = Boolean(optimizer.snapshot && jobs.length === 0);
   const pendingCount = jobs.filter((job) => job.status === "pending").length;
   const completedCount = jobs.filter((job) => job.status === "completed").length;
@@ -49,10 +50,22 @@ export default function App() {
   };
 
   return (
-    <main className={`app-shell${settingsOpen ? " settings-open" : ""}`}>
+    <main
+      className={`app-shell${settingsOpen ? " settings-open" : ""}`}
+      onContextMenu={(event) => event.preventDefault()}
+    >
       <header
         className={`topbar${optimizer.desktop ? " has-window-controls" : ""}`}
-        data-tauri-drag-region
+        onMouseDown={(event) => {
+          if (
+            !optimizer.desktop ||
+            event.button !== 0 ||
+            (event.target as Element).closest("button, a, input, select, textarea")
+          ) {
+            return;
+          }
+          void getCurrentWindow().startDragging();
+        }}
         onDoubleClick={(event) => {
           if (!optimizer.desktop || (event.target as HTMLElement).closest(".window-controls")) return;
           void getCurrentWindow().toggleMaximize();
@@ -63,11 +76,15 @@ export default function App() {
           <span className="brand-name">video<span>optimus</span></span>
         </div>
         <div className="topbar-right">
-          <span className={`runtime-pill${optimizer.snapshot?.runtime.ready ? " is-ready" : " is-missing"}`}>
-            <Icon name={optimizer.snapshot?.runtime.ready ? "cpu" : "info"} size={16} />
-            {optimizer.snapshot?.runtime.ready
-              ? optimizer.snapshot.runtime.qsvAvailable ? "QSV доступний" : "Кодування на CPU"
-              : optimizer.desktop ? "Потрібен FFmpeg" : "Desktop програма"}
+          <span className={`runtime-pill${checkingRuntime ? " is-checking" : optimizer.snapshot?.runtime.ready ? " is-ready" : " is-missing"}`}>
+            {checkingRuntime
+              ? <span className="loading-spinner" aria-hidden="true" />
+              : <Icon name={optimizer.snapshot?.runtime.ready ? "cpu" : "info"} size={16} />}
+            {checkingRuntime
+              ? "Перевірка FFmpeg…"
+              : optimizer.snapshot?.runtime.ready
+                ? optimizer.snapshot.runtime.qsvAvailable ? "QSV доступний" : "Кодування на CPU"
+                : optimizer.desktop ? "Потрібен FFmpeg" : "Desktop програма"}
           </span>
           <span className="local-pill">Локальна обробка</span>
         </div>
@@ -221,7 +238,7 @@ export default function App() {
                 <SystemPanel
                   runtime={optimizer.snapshot?.runtime ?? null}
                   desktop={optimizer.desktop}
-              checkingRuntime={optimizer.checkingRuntime}
+                  checkingRuntime={optimizer.checkingRuntime}
                   onOpenSetup={() => setFfmpegHelpOpen(true)}
                 />
               </div>

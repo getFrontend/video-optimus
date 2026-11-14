@@ -33,6 +33,10 @@
 .runtime-pill { gap: var(--space-xs); min-height: 1.75rem; color: var(--color-ink-2); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
 .runtime-pill.is-ready svg { color: var(--color-success); }
 .runtime-pill.is-missing svg { color: var(--color-warning); }
+.runtime-pill.is-checking { color: var(--color-muted); }
+.loading-spinner { display: inline-block; flex: 0 0 auto; width: 0.875rem; height: 0.875rem; border: 1.5px solid color-mix(in oklab, var(--color-accent) 24%, transparent); border-top-color: var(--color-accent); border-radius: 50%; animation: runtime-spin 800ms linear infinite; }
+.system-loading { display: flex; align-items: center; gap: var(--space-xs); min-height: 1.375rem; }
+@keyframes runtime-spin { to { transform: rotate(360deg); } }
 .local-pill { padding-left: var(--space-lg); border-left: var(--rule-hair) solid var(--color-rule); color: var(--color-muted); font-size: var(--text-sm); white-space: nowrap; }
 .page-content { display: flex; flex: 1; flex-direction: column; width: 100%; max-width: var(--container); margin-inline: auto; padding: var(--space-xl) var(--gutter) var(--space-md); }
 .welcome-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-2xl); margin-bottom: var(--space-xl); }

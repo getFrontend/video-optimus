@@ -74,6 +74,7 @@ export function useOptimizer() {
     async function connect() {
       const available = isTauri();
       setDesktop(available);
+      setCheckingRuntime(available);
       if (!available) return;
 
       const stopSnapshot = await listen<AppSnapshot>("app-snapshot", (event) => {
@@ -102,6 +103,7 @@ export function useOptimizer() {
       if (disposed) return;
       snapshotRef.current = initial;
       setSnapshot(initial);
+      setCheckingRuntime(false);
 
       const stopFocus = await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
         if (
@@ -136,7 +138,12 @@ export function useOptimizer() {
       unlistenFocus = stopFocus;
     }
 
-    void connect().catch((error) => showNotice(errorMessage(error)));
+    void connect().catch((error) => {
+      if (!disposed) {
+        setCheckingRuntime(false);
+        showNotice(errorMessage(error));
+      }
+    });
     return () => {
       disposed = true;
       unlistenSnapshot?.();

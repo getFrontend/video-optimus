@@ -28,7 +28,10 @@ export function SystemPanel({
           Відкрийте настільну версію застосунку
         </div>
       ) : checkingRuntime ? (
-        <div className="system-state state-muted">Перевіряємо підключення FFmpeg…</div>
+        <div className="system-state state-muted system-loading" role="status">
+          <span className="loading-spinner" aria-hidden="true" />
+          <span>Перевіряємо кодеки та FFmpeg…</span>
+        </div>
       ) : runtime?.ready ? (
         <>
           <div className="system-check-list">
