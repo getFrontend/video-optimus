@@ -137,7 +137,9 @@ fn remove_partial_output(job: &VideoJob) {
     if let Ok(entries) = std::fs::read_dir(directory) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().into_owned();
-            if name.starts_with(&format!(".{}.", job.id)) && name.ends_with(".tmp.mp4") {
+            if name.starts_with(&format!(".{}.", job.id))
+                && (name.ends_with(".tmp.mp4") || name.ends_with(".tmp.mkv"))
+            {
                 let _ = std::fs::remove_file(entry.path());
             }
         }

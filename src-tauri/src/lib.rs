@@ -4,6 +4,7 @@ mod environment;
 mod ffmpeg_process;
 mod media;
 mod models;
+mod preview;
 mod queue;
 mod state;
 mod validation;
@@ -27,6 +28,8 @@ pub fn run() {
             commands::refresh_runtime,
             commands::get_snapshot,
             commands::get_video_thumbnail,
+            commands::create_video_preview,
+            commands::remove_video_preview,
             commands::enqueue_files,
             commands::enqueue_folder,
             commands::start_queue,
@@ -36,6 +39,8 @@ pub fn run() {
             commands::move_job,
             commands::reorder_job,
             commands::retry_job,
+            commands::retry_jobs,
+            commands::apply_job_settings,
             commands::skip_job,
             commands::remove_job,
             commands::clear_completed,

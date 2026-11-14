@@ -1,14 +1,15 @@
 use crate::{
-    encoding::{encoding_args, EncoderChoice},
+    encoding::{encoding_args, target_video_bitrate, EncoderChoice, EncodingPlan},
     media::MediaTools,
-    models::VideoJob,
+    models::{CompressionMode, CustomAudioCodec, VideoJob},
     state::AppState,
     worker::update_job,
 };
 use std::{path::Path, sync::Arc};
 use tauri::AppHandle;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
+    fs::OpenOptions,
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::Notify,
 };
@@ -35,10 +36,19 @@ pub(crate) async fn encode_with_fallback(
         job,
         tools,
     };
+    let target_video_bitrate = target_video_bitrate(job)?;
+    let audio_codec = if matches!(job.mode, CompressionMode::Custom)
+        && matches!(job.custom_settings.audio_codec, CustomAudioCodec::Aac)
+    {
+        "aac"
+    } else {
+        "copy"
+    };
     let first = run_encoder(
         &context,
         &encoder.name,
-        "copy",
+        target_video_bitrate,
+        audio_codec,
         temporary,
         cancellation.clone(),
     )
@@ -64,7 +74,16 @@ pub(crate) async fn encode_with_fallback(
                 current.encoder = Some(format!("{fallback} · CPU fallback"));
             })
             .await;
-            match run_encoder(&context, fallback, "copy", temporary, cancellation.clone()).await {
+            match run_encoder(
+                &context,
+                fallback,
+                target_video_bitrate,
+                audio_codec,
+                temporary,
+                cancellation.clone(),
+            )
+            .await
+            {
                 Ok(cancelled) => return Ok(cancelled),
                 Err(error) => {
                     active_encoder = fallback;
@@ -73,7 +92,10 @@ pub(crate) async fn encode_with_fallback(
             }
         }
     }
-    if is_audio_container_error(&last_error) && job.metadata.audio_tracks > 0 {
+    if audio_codec == "copy"
+        && is_audio_container_error(&last_error)
+        && job.metadata.audio_tracks > 0
+    {
         let _ = tokio::fs::remove_file(temporary).await;
         update_job(state, app, &job.id, |current| {
             current.progress = 0.0;
@@ -82,7 +104,15 @@ pub(crate) async fn encode_with_fallback(
             current.encoder = Some(format!("{active_encoder} · AAC audio fallback"));
         })
         .await;
-        return run_encoder(&context, active_encoder, "aac", temporary, cancellation).await;
+        return run_encoder(
+            &context,
+            active_encoder,
+            target_video_bitrate,
+            "aac",
+            temporary,
+            cancellation,
+        )
+        .await;
     }
     Err(last_error)
 }
@@ -90,8 +120,120 @@ pub(crate) async fn encode_with_fallback(
 async fn run_encoder(
     context: &EncodeContext<'_>,
     encoder: &str,
+    target_video_bitrate: Option<u64>,
     audio_codec: &str,
     temporary: &Path,
+    cancellation: Arc<Notify>,
+) -> Result<bool, String> {
+    if target_video_bitrate.is_some() && matches!(encoder, "libx264" | "libx265") {
+        let pass_logfile = temporary.with_extension("passlog");
+        cleanup_pass_logs(&pass_logfile);
+        let first_pass = run_encoder_pass(
+            context,
+            encoder,
+            target_video_bitrate,
+            audio_codec,
+            temporary,
+            Some(1),
+            Some(&pass_logfile),
+            (0.0, 49.0),
+            cancellation.clone(),
+        )
+        .await;
+        match first_pass {
+            Ok(true) => {
+                cleanup_pass_logs(&pass_logfile);
+                return Ok(true);
+            }
+            Ok(false) => {
+                let second_pass = run_encoder_pass(
+                    context,
+                    encoder,
+                    target_video_bitrate,
+                    audio_codec,
+                    temporary,
+                    Some(2),
+                    Some(&pass_logfile),
+                    (50.0, 99.0),
+                    cancellation.clone(),
+                )
+                .await;
+                cleanup_pass_logs(&pass_logfile);
+                match second_pass {
+                    Ok(false) => return Ok(false),
+                    Ok(true) => return Ok(true),
+                    Err(two_pass_error) => {
+                        let _ = tokio::fs::remove_file(temporary).await;
+                        let single_pass = run_encoder_pass(
+                            context,
+                            encoder,
+                            target_video_bitrate,
+                            audio_codec,
+                            temporary,
+                            None,
+                            None,
+                            (0.0, 99.0),
+                            cancellation,
+                        )
+                        .await;
+                        return single_pass.map_err(|single_pass_error| {
+                            format!(
+                                "Two-pass encoding failed ({two_pass_error}); \
+                                 single-pass fallback failed ({single_pass_error})."
+                            )
+                        });
+                    }
+                }
+            }
+            Err(two_pass_error) => {
+                cleanup_pass_logs(&pass_logfile);
+                let _ = tokio::fs::remove_file(temporary).await;
+                let single_pass = run_encoder_pass(
+                    context,
+                    encoder,
+                    target_video_bitrate,
+                    audio_codec,
+                    temporary,
+                    None,
+                    None,
+                    (0.0, 99.0),
+                    cancellation,
+                )
+                .await;
+                return single_pass.map_err(|single_pass_error| {
+                    format!(
+                        "Two-pass encoding failed ({two_pass_error}); \
+                         single-pass fallback failed ({single_pass_error})."
+                    )
+                });
+            }
+        }
+    }
+
+    run_encoder_pass(
+        context,
+        encoder,
+        target_video_bitrate,
+        audio_codec,
+        temporary,
+        None,
+        None,
+        (0.0, 99.0),
+        cancellation,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_encoder_pass(
+    context: &EncodeContext<'_>,
+    encoder: &str,
+    target_video_bitrate: Option<u64>,
+    audio_codec: &str,
+    temporary: &Path,
+    pass: Option<u8>,
+    pass_logfile: Option<&Path>,
+    progress_range: (f64, f64),
     cancellation: Arc<Notify>,
 ) -> Result<bool, String> {
     let ffmpeg = context
@@ -99,7 +241,29 @@ async fn run_encoder(
         .ffmpeg
         .as_ref()
         .ok_or_else(|| "FFmpeg не знайдено.".to_string())?;
-    let args = encoding_args(context.job, encoder, audio_codec, temporary);
+    let supported_options = context
+        .tools
+        .runtime
+        .encoders
+        .iter()
+        .find(|item| item.name == encoder && item.available)
+        .map(|item| item.supported_options.as_slice())
+        .unwrap_or_default();
+    let args = encoding_args(
+        context.job,
+        EncodingPlan {
+            encoder,
+            supported_options,
+            target_video_bitrate,
+            pass,
+            pass_logfile,
+            audio_codec,
+            include_audio: true,
+            start_seconds: None,
+            duration_seconds: None,
+            temporary,
+        },
+    );
     let mut child = Command::new(ffmpeg)
         .args(args)
         .stdout(std::process::Stdio::piped())
@@ -120,7 +284,14 @@ async fn run_encoder(
     let progress_state = context.state.clone();
     let progress_job = context.job.clone();
     let progress = tokio::spawn(async move {
-        read_progress(stdout, progress_app, progress_state, progress_job).await;
+        read_progress(
+            stdout,
+            progress_app,
+            progress_state,
+            progress_job,
+            progress_range,
+        )
+        .await;
     });
     let errors = tokio::spawn(async move { read_error_tail(stderr).await });
 
@@ -139,6 +310,14 @@ async fn run_encoder(
     if status.success() {
         Ok(false)
     } else {
+        let log_path = write_ffmpeg_log(context, encoder, pass, &error_text).await;
+        if let Some(path) = log_path {
+            let path = path.to_string_lossy().into_owned();
+            update_job(context.state, context.app, &context.job.id, |current| {
+                current.diagnostic_log = Some(path);
+            })
+            .await;
+        }
         let detail = error_text
             .lines()
             .rev()
@@ -147,6 +326,49 @@ async fn run_encoder(
             .unwrap_or("невідома помилка FFmpeg");
         Err(format!("{encoder}: {}", detail.trim()))
     }
+}
+
+fn cleanup_pass_logs(pass_logfile: &Path) {
+    let Some(directory) = pass_logfile.parent() else {
+        return;
+    };
+    let prefix = pass_logfile
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy();
+    if let Ok(entries) = std::fs::read_dir(directory) {
+        for entry in entries.flatten() {
+            if entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with(prefix.as_ref())
+            {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+}
+
+async fn write_ffmpeg_log(
+    context: &EncodeContext<'_>,
+    encoder: &str,
+    pass: Option<u8>,
+    error_text: &str,
+) -> Option<std::path::PathBuf> {
+    let directory = context.state.data_directory.join("logs");
+    tokio::fs::create_dir_all(&directory).await.ok()?;
+    let path = directory.join(format!("{}.log", context.job.id));
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .await
+        .ok()?;
+    let header = format!("\nEncoder: {encoder}; pass: {pass:?}\n");
+    file.write_all(header.as_bytes()).await.ok()?;
+    file.write_all(error_text.as_bytes()).await.ok()?;
+    file.write_all(b"\n").await.ok()?;
+    Some(path)
 }
 
 fn is_audio_container_error(error: &str) -> bool {
@@ -180,6 +402,7 @@ async fn read_progress(
     app: AppHandle,
     state: AppState,
     job: VideoJob,
+    progress_range: (f64, f64),
 ) {
     let mut lines = BufReader::new(stdout).lines();
     let mut out_seconds = 0.0_f64;
@@ -194,7 +417,8 @@ async fn read_progress(
         } else if let Some(value) = line.strip_prefix("speed=") {
             speed = Some(value.trim().to_string());
         }
-        let progress = (out_seconds / job.metadata.duration_seconds * 100.0).clamp(0.0, 99.0);
+        let fraction = (out_seconds / job.metadata.duration_seconds).clamp(0.0, 1.0);
+        let progress = progress_range.0 + fraction * (progress_range.1 - progress_range.0);
         if progress - last_sent >= 0.15 || line == "progress=end" {
             last_sent = progress;
             let parsed_speed = speed

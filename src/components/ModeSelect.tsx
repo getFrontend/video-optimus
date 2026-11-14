@@ -3,10 +3,15 @@ import { SettingsSelect } from "./SettingsSelect";
 import type { SettingsSelectOption } from "./SettingsSelect";
 
 const MODES: readonly SettingsSelectOption<CompressionMode>[] = [
-  { id: "smart", title: "Розумний", hint: "Збалансований вибір", badge: "За замовчуванням" },
+  {
+    id: "smart",
+    title: "Розумний",
+    hint: "Збалансований вибір",
+    badge: { icon: "star", label: "Рекомендовано за замовчуванням" },
+  },
   { id: "fast", title: "Швидкий", hint: "Пріоритет швидкості" },
   { id: "maximum", title: "Максимум", hint: "Компактніше, повільніше" },
-  { id: "custom", title: "Власний", hint: "Налаштування з’являться пізніше", disabled: true },
+  { id: "custom", title: "Власний", hint: "Кодек і параметри вручну" },
 ];
 
 export function ModeSelect({

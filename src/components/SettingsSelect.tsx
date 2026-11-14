@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Icon } from "./Icon";
+import type { IconName } from "./Icon";
+
+type SettingsSelectBadge = {
+  icon: IconName;
+  label: string;
+};
 
 export type SettingsSelectOption<Value extends string> = {
   id: Value;
   title: string;
   hint: string;
   disabled?: boolean;
-  badge?: string;
+  badge?: SettingsSelectBadge;
 };
 
 type SettingsSelectProps<Value extends string> = {
@@ -176,7 +182,10 @@ export function SettingsSelect<Value extends string>({
       >
         <span className="settings-select-mark" aria-hidden="true"><span /></span>
         <span className="settings-select-copy" id={valueId}>
-          <strong>{selectedOption.title}</strong>
+          <span className="settings-select-title">
+            <strong>{selectedOption.title}</strong>
+            {selectedOption.badge && <RecommendationBadge badge={selectedOption.badge} />}
+          </span>
           <small>{selectedOption.hint}</small>
         </span>
         <Icon name="chevron" size={16} className="settings-select-chevron" />
@@ -196,7 +205,6 @@ export function SettingsSelect<Value extends string>({
             <label
               key={option.id}
               className={`settings-select-option${value === option.id ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`}
-              onClick={() => closeMenu(true)}
             >
               <input
                 ref={option.id === value ? selectedRef : undefined}
@@ -205,18 +213,39 @@ export function SettingsSelect<Value extends string>({
                 value={option.id}
                 checked={value === option.id}
                 disabled={option.disabled}
-                onChange={() => onChange(option.id)}
+                onClick={() => {
+                  if (value === option.id) closeMenu(true);
+                }}
+                onChange={() => {
+                  onChange(option.id);
+                  closeMenu(true);
+                }}
               />
               <span className="radio-mark" aria-hidden="true" />
               <span className="settings-select-option-text">
-                <strong>{option.title}</strong>
+                <span className="settings-select-title">
+                  <strong>{option.title}</strong>
+                  {option.badge && <RecommendationBadge badge={option.badge} />}
+                </span>
                 <small>{option.hint}</small>
               </span>
-              {option.badge && <span className="settings-select-badge">{option.badge}</span>}
             </label>
           ))}
         </div>
       </div>
     </div>
+  );
+}
+
+function RecommendationBadge({ badge }: { badge: SettingsSelectBadge }) {
+  return (
+    <span
+      className="settings-select-badge"
+      role="img"
+      aria-label={badge.label}
+      title={badge.label}
+    >
+      <Icon name={badge.icon} size={16} />
+    </span>
   );
 }

@@ -44,16 +44,22 @@ The application detects available encoders at runtime, so the selected FFmpeg bu
 - Container and stream analysis with FFprobe.
 - A local queue with persistence, recovery of interrupted jobs, reordering, skipping, cancellation, retry, and cleanup.
 - Sequential processing with actual FFmpeg progress, speed, and estimated time remaining.
-- H.264, HEVC, and AV1 using detected QSV/CPU encoders, with separate quality values for each codec family.
-- MP4 export to a temporary file, with duration, resolution, FPS, audio, and subtitle checks before publishing the result.
+- H.264, HEVC, and AV1 using individually tested QSV encoders and detected CPU encoders, with encoder-specific options.
+- Smart/Fast/Maximum encoder priorities and speed/compression presets.
+- Target file size using bitrate control, two-pass x264/x265 where available, and a warning when the final size misses the 5% tolerance.
+- Three short preview fragments with side-by-side playback and optional SSIM/PSNR when the FFmpeg filters are available.
+- Automatic MKV output for jobs with subtitles or attachments; temporary outputs are validated before publishing.
+- Additional checks for duration, resolution, frame rate, video/audio/subtitle stream counts, color metadata, rotation, and bit depth.
 - Automatic unique `_optimized` filenames; source files remain unchanged.
-- Local settings for mode, quality, and export folder.
+- Local settings for mode, quality, target size, and export folder.
+- Bulk retry/settings for selected queue items and local FFmpeg diagnostic logs.
+- Runtime details for tested encoders, available SSIM/PSNR filters, and logical processor count.
 
 ## Current Limitations
 
-This is a working foundation for Phases 1–2, not a completion of the full specification. Codec settings have not yet been calibrated against a test set. Smart currently selects from available encoders by priority rather than by full scene-complexity analysis. HDR jobs are intentionally stopped because HDR preservation cannot be guaranteed. Custom mode, target file size, preview, VMAF/SSIM, an on-demand hardware test, and detailed system information are not yet implemented.
+This is still not a completion of the full specification. Codec profiles and the bitrate-based output-size estimate have not been calibrated against the required test set. Smart currently chooses by encoder priority rather than scene-complexity analysis. Target-size output is verified and warned about, but the 5% tolerance has not been validated on real videos. Preview and SSIM/PSNR code are implemented but have not been exercised with an installed FFmpeg build; VMAF and 100% zoom comparison are not implemented. Custom mode remains unavailable. HDR jobs are intentionally stopped because HDR preservation cannot be guaranteed. Detailed CPU/RAM/GPU reporting and user-facing language selection are also incomplete.
 
-The release `.exe` has been built, but the MSI/NSIS installers and actual encoding have not been tested because FFmpeg/FFprobe are unavailable in the development environment. A release still requires testing on Windows 11 with properly licensed FFmpeg binaries and the test videos from the specification.
+MSI and NSIS bundles build successfully, but installer execution and actual encoding still require verification with properly licensed FFmpeg/FFprobe binaries and the test videos from the specification. A release also needs a Windows 11/QSV run on the target Intel hardware.
 
 ## Build
 

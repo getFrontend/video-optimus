@@ -7,7 +7,9 @@ import type {
   AppSettings,
   AppSnapshot,
   CompressionMode,
+  CustomSettings,
   EnqueueResult,
+  PreviewResult,
   QualityProfile,
 } from "../types";
 
@@ -15,6 +17,16 @@ const DEFAULT_SETTINGS: AppSettings = {
   mode: "smart",
   quality: "balanced",
   outputDirectory: null,
+  targetSizeBytes: null,
+  customSettings: {
+    codec: "h264",
+    device: "auto",
+    preset: "balanced",
+    container: "auto",
+    audioCodec: "copy",
+    audioBitrateKbps: 192,
+    videoBitrateKbps: null,
+  },
 };
 
 export type NoticeType = "info" | "success" | "warning" | "error";
@@ -22,13 +34,14 @@ type Notice = { message: string; type: NoticeType };
 
 export function useOptimizer() {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
+  const [previewSettings, setPreviewSettings] = useState(DEFAULT_SETTINGS);
   const [desktop, setDesktop] = useState(false);
   const [checkingRuntime, setCheckingRuntime] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const snapshotRef = useRef(snapshot);
   const runtimeRefreshInFlight = useRef(false);
-  const settings = snapshot?.settings ?? DEFAULT_SETTINGS;
+  const settings = snapshot?.settings ?? previewSettings;
   const settingsRef = useRef(settings);
   const noticeTimer = useRef<number | undefined>(undefined);
   const addingPaths = useRef(new Set<string>());
@@ -45,6 +58,25 @@ export function useOptimizer() {
     const next = await invoke<AppSnapshot>("get_snapshot");
     setSnapshot(next);
   }, []);
+
+  const testHardwareAcceleration = useCallback(async () => {
+    setCheckingRuntime(true);
+    try {
+      const next = await invoke<AppSnapshot>("refresh_runtime");
+      snapshotRef.current = next;
+      setSnapshot(next);
+      showNotice(
+        next.runtime.qsvAvailable
+          ? "Тест апаратного прискорення пройдено."
+          : "QSV недоступний; для обробки буде використано CPU.",
+        next.runtime.qsvAvailable ? "success" : "warning",
+      );
+    } catch (error) {
+      showNotice(errorMessage(error), "error");
+    } finally {
+      setCheckingRuntime(false);
+    }
+  }, [showNotice]);
 
   const addPaths = useCallback(async (paths: string[]) => {
     const uniquePaths = paths.filter((path) => !addingPaths.current.has(path));
@@ -159,6 +191,11 @@ export function useOptimizer() {
   }, [addPaths, showNotice]);
 
   const updateSettings = useCallback(async (next: AppSettings) => {
+    if (!isTauri()) {
+      setPreviewSettings(next);
+      return;
+    }
+
     try {
       await invoke("update_settings", { settings: next });
       setSnapshot((current) => current ? { ...current, settings: next } : current);
@@ -184,9 +221,7 @@ export function useOptimizer() {
     try {
       const result = await invoke<EnqueueResult>("enqueue_folder", {
         path: selection,
-        mode: settings.mode,
-        quality: settings.quality,
-        outputDirectory: settings.outputDirectory,
+        settings,
       });
       setSnapshot(await invoke<AppSnapshot>("get_snapshot"));
       if (result.added.length > 0 || result.rejected.length > 0) {
@@ -217,6 +252,10 @@ export function useOptimizer() {
 
   const setMode = (mode: CompressionMode) => updateSettings({ ...settings, mode });
   const setQuality = (quality: QualityProfile) => updateSettings({ ...settings, quality });
+  const setTargetSize = (targetSizeBytes: number | null) =>
+    updateSettings({ ...settings, targetSizeBytes });
+  const setCustomSettings = (customSettings: CustomSettings) =>
+    updateSettings({ ...settings, customSettings });
 
   const command = useCallback(async (
     name: string,
@@ -247,6 +286,26 @@ export function useOptimizer() {
   const retryJob = useCallback((id: string) => {
     void command("retry_job", { id }, "Завдання додано для повторної обробки.");
   }, [command]);
+
+  const retryJobs = useCallback((ids: string[]) => {
+    void command("retry_jobs", { ids }, "Вибрані завдання додано для повторної обробки.");
+  }, [command]);
+
+  const applyJobSettings = useCallback((ids: string[]) => {
+    void command(
+      "apply_job_settings",
+      { ids, settings },
+      "Параметри застосовано до вибраних завдань.",
+    );
+  }, [command, settings]);
+
+  const createPreview = useCallback((id: string) => {
+    return invoke<PreviewResult>("create_video_preview", { id });
+  }, []);
+
+  const removePreview = useCallback((previewId: string, jobId: string) => {
+    return invoke("remove_video_preview", { previewId, jobId });
+  }, []);
 
   const skipJob = useCallback((id: string) => {
     void command("skip_job", { id });
@@ -284,9 +343,12 @@ export function useOptimizer() {
     dragging,
     notice,
     checkingRuntime,
+    testHardwareAcceleration,
     dismissNotice,
     setMode,
     setQuality,
+    setTargetSize,
+    setCustomSettings,
     chooseFiles,
     chooseFolder,
     chooseOutput,
@@ -299,6 +361,10 @@ export function useOptimizer() {
     reorderJob,
     removeJob,
     retryJob,
+    retryJobs,
+    applyJobSettings,
+    createPreview,
+    removePreview,
     skipJob,
     openPath,
   };

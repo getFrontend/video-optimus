@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import UseAnimations from "react-useanimations";
+import chevronLeft from "react-useanimations/lib/chevronLeft";
 import { BrandMark } from "./components/BrandMark";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
 import { Icon, type IconName } from "./components/Icon";
@@ -147,15 +149,19 @@ export default function App() {
                 <div className="settings-drawer-content">
                   <SettingsPanel
                     settings={optimizer.settings}
+                    runtime={optimizer.snapshot?.runtime ?? null}
                     onMode={optimizer.setMode}
                     onQuality={optimizer.setQuality}
+                    onCustomSettings={optimizer.setCustomSettings}
                     onOutput={optimizer.chooseOutput}
+                    onTargetSize={optimizer.setTargetSize}
                   />
                   <SystemPanel
                     runtime={optimizer.snapshot?.runtime ?? null}
                     desktop={optimizer.desktop}
                     checkingRuntime={optimizer.checkingRuntime}
                     onOpenSetup={() => setFfmpegHelpOpen(true)}
+                  onTestHardware={optimizer.testHardwareAcceleration}
                   />
                 </div>
               </div>
@@ -176,7 +182,7 @@ export default function App() {
               title="Параметри стиснення"
               onClick={() => setSettingsOpen(true)}
             >
-              <Icon name="chevron" size={18} />
+              <UseAnimations animation={chevronLeft} interaction="hover-replay" size={18} />
             </button>
           )}
         </div>

@@ -5,7 +5,12 @@ import type { SettingsSelectOption } from "./SettingsSelect";
 const PROFILES: readonly SettingsSelectOption<QualityProfile>[] = [
   { id: "near_original", title: "Майже оригінал", hint: "Зберегти максимум деталей" },
   { id: "high", title: "Висока", hint: "Чітке зображення" },
-  { id: "balanced", title: "Збалансована", hint: "Якість і розмір" },
+  {
+    id: "balanced",
+    title: "Збалансована",
+    hint: "Якість і розмір",
+    badge: { icon: "star", label: "Рекомендовано за замовчуванням" },
+  },
   { id: "compact", title: "Компактна", hint: "Менший розмір файлу" },
 ];
 

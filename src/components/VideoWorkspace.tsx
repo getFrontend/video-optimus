@@ -2,7 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { DropZone } from "./DropZone";
 import { Icon } from "./Icon";
 import { QueueItem } from "./QueueItem";
+import { QueueBulkToolbar } from "./QueueBulkToolbar";
+import { PreviewComparator } from "./PreviewComparator";
 import { WorkspaceTabs, type WorkspaceTab } from "./WorkspaceTabs";
+import { SELECTABLE_STATUSES, useBulkQueueSelection } from "../hooks/useBulkQueueSelection";
+import { usePreviewComparison } from "../hooks/usePreviewComparison";
 import { useOptimizer } from "../hooks/useOptimizer";
 import type { JobStatus, VideoJob } from "../types";
 
@@ -28,6 +32,11 @@ export function VideoWorkspace({
   const positionsBeforeReorder = useRef<Map<string, DOMRect> | null>(null);
   const previousJobIds = useRef<Set<string> | null>(null);
   const hasSnapshot = optimizer.snapshot !== null;
+  const preview = usePreviewComparison(
+    jobs,
+    optimizer.createPreview,
+    optimizer.removePreview,
+  );
   const activeJob = jobs.find((job) => ACTIVE.includes(job.status));
   const processingJobs = jobs.filter((job) => job.status !== "completed");
   const activeJobs = jobs.filter((job) => ACTIVE.includes(job.status));
@@ -35,6 +44,7 @@ export function VideoWorkspace({
   const attentionJobs = processingJobs.filter(
     (job) => job.status !== "pending" && !ACTIVE.includes(job.status),
   );
+  const bulk = useBulkQueueSelection(jobs, optimizer.applyJobSettings, optimizer.retryJobs);
   const pendingIndex = useMemo(() => {
     let position = 0;
     return new Map(jobs.filter((job) => job.status === "pending").map((job) => [job.id, position++]));
@@ -135,6 +145,7 @@ export function VideoWorkspace({
         <QueueItem
           key={job.id}
           job={job}
+          settings={optimizer.settings}
           index={pendingIndex.get(job.id) ?? -1}
           isDragging={draggedJobId === job.id}
           isDropTarget={dropTargetId === job.id && draggedJobId !== job.id}
@@ -145,6 +156,10 @@ export function VideoWorkspace({
           onDragTarget={updateDropTarget}
           onRemove={optimizer.removeJob}
           onRetry={optimizer.retryJob}
+          selectable={SELECTABLE_STATUSES.includes(job.status)}
+          selected={bulk.selectedIds.has(job.id)}
+          onSelect={bulk.selectJob}
+          onPreview={preview.open}
           onSkip={optimizer.skipJob}
           onOpen={optimizer.openPath}
         />
@@ -197,6 +212,15 @@ export function VideoWorkspace({
                 )}
               </div>
             </div>
+
+            <QueueBulkToolbar
+              selectedCount={bulk.selectedJobs.length}
+              pendingCount={bulk.selectedJobs.filter((job) => job.status === "pending").length}
+              retryableCount={bulk.selectedJobs.filter((job) => ["failed", "cancelled", "interrupted"].includes(job.status)).length}
+              onApplySettings={bulk.applyToPending}
+              onRetry={bulk.retrySelected}
+              onClear={bulk.clear}
+            />
 
             {processingJobs.length === 0 ? (
               <div className="empty-queue">
@@ -304,6 +328,15 @@ export function VideoWorkspace({
           </section>
         )}
       </div>
+      {preview.job && (
+        <PreviewComparator
+          job={preview.job}
+          preview={preview.result}
+          loading={preview.loading}
+          error={preview.error}
+          onClose={preview.close}
+        />
+      )}
     </div>
   );
 }

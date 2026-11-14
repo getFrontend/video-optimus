@@ -1,4 +1,7 @@
-import { Icon } from "./Icon";
+import UseAnimations from "react-useanimations";
+import filePlus from "react-useanimations/lib/filePlus";
+import folder from "react-useanimations/lib/folder";
+import upload from "react-useanimations/lib/upload";
 
 const FORMATS = ["MP4", "MKV", "MOV", "AVI", "WEBM", "TS"];
 
@@ -18,7 +21,9 @@ export function DropZone({
       className={`drop-zone${dragging ? " is-dragging" : ""}`}
       aria-label="Додавання відео"
     >
-      <span className="drop-symbol" aria-hidden="true"><Icon name="videoFile" size={40} /></span>
+      <span className="drop-symbol" aria-hidden="true">
+        <UseAnimations animation={filePlus} interaction="hover-replay" size={80} />
+      </span>
       <div className="drop-copy">
         <h2>{dragging ? "Відпустіть, щоб додати" : "Перетягніть відео сюди"}</h2>
         <p>Додавайте одне відео або кілька файлів одразу. Можна вибрати цілу теку.</p>
@@ -29,11 +34,11 @@ export function DropZone({
       </div>
       <div className="drop-actions">
         <button className="button button-primary" type="button" disabled={!available} onClick={onFiles}>
-          <Icon name="add" size={32} />
+          <UseAnimations animation={upload} interaction="hover-replay" size={32} />
           Додати файли
         </button>
-        <button className="button button-secondary" type="button" disabled={!available} onClick={onFolder}>
-          <Icon name="folder" size={32} />
+        <button className="button button-secondary drop-folder-button" type="button" disabled={!available} onClick={onFolder}>
+          <UseAnimations animation={folder} interaction="hover-replay" size={32} />
           Вибрати теку
         </button>
       </div>

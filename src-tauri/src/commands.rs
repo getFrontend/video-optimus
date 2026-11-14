@@ -1,8 +1,6 @@
 use crate::{
     media::MediaTools,
-    models::{
-        AppSettings, AppSnapshot, CompressionMode, EnqueueOptions, EnqueueResult, QualityProfile,
-    },
+    models::{AppSettings, AppSnapshot, EnqueueOptions, EnqueueResult},
     queue,
     state::AppState,
 };
@@ -16,6 +14,7 @@ use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub async fn initialize(app: AppHandle, state: State<'_, AppState>) -> Result<AppSnapshot, String> {
+    crate::preview::cleanup_stale(&state.data_directory).await;
     let tools = MediaTools::discover().await;
     *state.tools.write().await = tools;
     state.persist().await?;
@@ -105,6 +104,25 @@ pub async fn get_video_thumbnail(
 }
 
 #[tauri::command]
+pub async fn create_video_preview(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<crate::preview::PreviewResult, String> {
+    crate::preview::create_preview(&app, &state, &id).await
+}
+
+#[tauri::command]
+pub async fn remove_video_preview(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    preview_id: String,
+    job_id: String,
+) -> Result<(), String> {
+    crate::preview::remove_preview(&app, &state, &preview_id, &job_id).await
+}
+
+#[tauri::command]
 pub async fn enqueue_files(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -116,6 +134,8 @@ pub async fn enqueue_files(
         options.mode,
         options.quality,
         options.output_directory,
+        options.target_size_bytes,
+        options.custom_settings,
     )
     .await?;
     state.snapshot(&app).await;
@@ -127,12 +147,20 @@ pub async fn enqueue_folder(
     app: AppHandle,
     state: State<'_, AppState>,
     path: String,
-    mode: CompressionMode,
-    quality: QualityProfile,
-    output_directory: Option<String>,
+    settings: AppSettings,
 ) -> Result<EnqueueResult, String> {
+    settings.custom_settings.validate()?;
     let paths = queue::scan_folder(&PathBuf::from(path))?;
-    let result = queue::enqueue_paths(&state, paths, mode, quality, output_directory).await?;
+    let result = queue::enqueue_paths(
+        &state,
+        paths,
+        settings.mode,
+        settings.quality,
+        settings.output_directory,
+        settings.target_size_bytes,
+        settings.custom_settings,
+    )
+    .await?;
     state.snapshot(&app).await;
     Ok(result)
 }
@@ -196,6 +224,29 @@ pub async fn retry_job(
 }
 
 #[tauri::command]
+pub async fn retry_jobs(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<usize, String> {
+    let count = queue::retry_jobs(&state, &ids).await?;
+    state.snapshot(&app).await;
+    Ok(count)
+}
+
+#[tauri::command]
+pub async fn apply_job_settings(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    settings: AppSettings,
+) -> Result<usize, String> {
+    let count = queue::apply_settings_to_pending_jobs(&state, &ids, &settings).await?;
+    state.snapshot(&app).await;
+    Ok(count)
+}
+
+#[tauri::command]
 pub async fn skip_job(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -230,6 +281,7 @@ pub async fn update_settings(
     state: State<'_, AppState>,
     settings: AppSettings,
 ) -> Result<(), String> {
+    settings.custom_settings.validate()?;
     *state.settings.write().await = settings;
     state.persist_settings().await?;
     state.snapshot(&app).await;

@@ -1,5 +1,5 @@
 use crate::{
-    encoding::select_encoder,
+    encoding::{output_extension, select_encoder},
     ffmpeg_process::encode_with_fallback,
     models::{JobStatus, VideoJob},
     state::AppState,
@@ -28,6 +28,51 @@ pub async fn run_queue(app: AppHandle, state: AppState) {
         let Some(job) = next else { break };
         let started = Instant::now();
         let tools = state.tools.read().await.clone();
+        if job.metadata.data_streams > 0 {
+            finish_job(
+                &state,
+                &app,
+                &job.id,
+                JobStatus::Failed,
+                Some(
+                    "Відео містить потоки даних, які поточний експорт не підтримує. \
+                     Вихідний файл не створено, оригінал збережено."
+                        .to_string(),
+                ),
+            )
+            .await;
+            continue;
+        }
+        if job.metadata.video_streams > 1 {
+            finish_job(
+                &state,
+                &app,
+                &job.id,
+                JobStatus::Failed,
+                Some(
+                    "Відео містить кілька відеодоріжок, які поточний експорт не зберігає. \
+                     Вихідний файл не створено, оригінал збережено."
+                        .to_string(),
+                ),
+            )
+            .await;
+            continue;
+        }
+        if job.metadata.attached_picture_streams > 0 || job.metadata.unhandled_streams > 0 {
+            finish_job(
+                &state,
+                &app,
+                &job.id,
+                JobStatus::Failed,
+                Some(
+                    "Відео містить вкладені зображення або невідомі потоки, які поточний експорт \
+                     не зберігає. Вихідний файл не створено, оригінал збережено."
+                        .to_string(),
+                ),
+            )
+            .await;
+            continue;
+        }
         if job.metadata.is_hdr {
             finish_job(
                 &state,
@@ -90,7 +135,12 @@ pub async fn run_queue(app: AppHandle, state: AppState) {
             .await;
             continue;
         }
-        let temporary = directory.join(format!(".{}.{}.tmp.mp4", job.id, Uuid::new_v4()));
+        let temporary = directory.join(format!(
+            ".{}.{}.tmp.{}",
+            job.id,
+            Uuid::new_v4(),
+            output_extension(&job)
+        ));
         let cancellation = Arc::new(Notify::new());
         *state.cancel_current.lock().await = Some(cancellation.clone());
         update_job(&state, &app, &job.id, |current| {
@@ -99,6 +149,7 @@ pub async fn run_queue(app: AppHandle, state: AppState) {
             current.speed = None;
             current.eta_seconds = None;
             current.encoder = Some(encoder.name.clone());
+            current.diagnostic_log = None;
         })
         .await;
         let _ = state.persist().await;
@@ -151,6 +202,8 @@ pub async fn run_queue(app: AppHandle, state: AppState) {
                             current.output_path = Some(output.to_string_lossy().into_owned());
                             current.output_size = Some(size);
                             current.elapsed_seconds = Some(started.elapsed().as_secs_f64());
+                            current.result_warning =
+                                target_size_warning(job.target_size_bytes, size);
                             current.error = None;
                         })
                         .await;
@@ -164,6 +217,24 @@ pub async fn run_queue(app: AppHandle, state: AppState) {
             }
         }
     }
+}
+
+fn target_size_warning(target_size: Option<u64>, actual_size: u64) -> Option<String> {
+    let target_size = target_size.filter(|size| *size > 0)?;
+    let deviation = actual_size.abs_diff(target_size) as f64 / target_size as f64;
+    if deviation <= 0.05 {
+        return None;
+    }
+
+    let percentage = (deviation * 100.0).round() as u64;
+    let direction = if actual_size > target_size {
+        "перевищує"
+    } else {
+        "менший за"
+    };
+    Some(format!(
+        "Фактичний розмір на {percentage}% {direction} цільовий. Перевірте якість результату."
+    ))
 }
 
 pub(crate) async fn update_job(
@@ -196,4 +267,17 @@ async fn finish_job(
     })
     .await;
     let _ = state.persist().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::target_size_warning;
+
+    #[test]
+    fn target_size_warning_respects_five_percent_tolerance() {
+        assert_eq!(target_size_warning(Some(1_000), 1_050), None);
+        assert!(target_size_warning(Some(1_000), 1_100).is_some());
+        assert!(target_size_warning(Some(1_000), 900).is_some());
+        assert_eq!(target_size_warning(None, 10_000), None);
+    }
 }

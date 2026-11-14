@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import UseAnimations from "react-useanimations";
+import xSquare from "react-useanimations/lib/xSquare";
 import type { RuntimeInfo } from "../types";
 import { Icon } from "./Icon";
 
@@ -8,11 +10,13 @@ export function SystemPanel({
   desktop,
   checkingRuntime,
   onOpenSetup,
+  onTestHardware,
 }: {
   runtime: RuntimeInfo | null;
   desktop: boolean;
   checkingRuntime: boolean;
   onOpenSetup: () => void;
+  onTestHardware: () => void;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -94,13 +98,17 @@ export function SystemPanel({
                   aria-label="Закрити детальну інформацію"
                   onClick={closeDetails}
                 >
-                  <Icon name="close" size={18} />
+                  <UseAnimations animation={xSquare} interaction="hover-replay" size={36} />
                 </button>
               </header>
               <dl className="system-details-list">
                 <div>
                   <dt>Версія FFmpeg</dt>
                   <dd className="system-details-raw">{runtime.ffmpegVersion ?? "Недоступна"}</dd>
+                </div>
+                <div>
+                  <dt>Логічні потоки CPU</dt>
+                  <dd>{runtime.logicalProcessors}</dd>
                 </div>
                 <div>
                   <dt>FFmpeg</dt>
@@ -117,14 +125,33 @@ export function SystemPanel({
                       ? (
                         <ul className="system-encoder-list">
                           {availableEncoders.map((encoder) => (
-                            <li key={encoder.name}>{encoder.name}</li>
+                            <li key={encoder.name}>
+                              <span>{encoder.name}</span>
+                              <small>{encoder.hardware ? "QSV-тест пройден" : "CPU-кодер доступен"}</small>
+                            </li>
                           ))}
                         </ul>
                       )
                       : "Не виявлено"}
                   </dd>
                 </div>
+                <div>
+                  <dt>Фільтри оцінки якості</dt>
+                  <dd>
+                    {runtime.qualityMetrics.length
+                      ? runtime.qualityMetrics.join(", ").toUpperCase()
+                      : "SSIM / PSNR недоступні"}
+                  </dd>
+                </div>
               </dl>
+              <button
+                className="button button-secondary system-hardware-test"
+                type="button"
+                disabled={checkingRuntime}
+                onClick={onTestHardware}
+              >
+                {checkingRuntime ? "Перевірка кодерів…" : "Перевірити апаратне прискорення"}
+              </button>
             </section>,
             document.body,
           )}

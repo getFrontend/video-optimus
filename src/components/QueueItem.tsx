@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { VideoJob } from "../types";
+import type { AppSettings, VideoJob } from "../types";
 import { formatDuration, formatFrameRate, formatSize, statusLabel } from "../lib/format";
 import { estimateOutputSize } from "../lib/estimate";
 import { Icon } from "./Icon";
@@ -79,6 +79,7 @@ function describeSavings(
 
 export function QueueItem({
   job,
+  settings,
   index,
   isDragging,
   isDropTarget,
@@ -89,10 +90,15 @@ export function QueueItem({
   onDragTarget,
   onRemove,
   onRetry,
+  selectable,
+  selected,
+  onSelect,
+  onPreview,
   onSkip,
   onOpen,
 }: {
   job: VideoJob;
+  settings: AppSettings;
   index: number;
   isDragging: boolean;
   isDropTarget: boolean;
@@ -103,6 +109,10 @@ export function QueueItem({
   onDragTarget: (id: string | null) => void;
   onRemove: (id: string) => void;
   onRetry: (id: string) => void;
+  selectable: boolean;
+  selected: boolean;
+  onSelect: (id: string, selected: boolean) => void;
+  onPreview: (id: string) => void;
   onSkip: (id: string) => void;
   onOpen: (path: string, reveal?: boolean) => void;
 }) {
@@ -114,16 +124,35 @@ export function QueueItem({
     ? 0
     : Math.round((saved / Math.max(job.sourceSize, 1)) * 100);
   const progress = Math.min(100, Math.max(0, job.progress));
-  const estimate = job.status !== "completed" && job.status !== "skipped"
-    ? estimateOutputSize(job.sourceSize, job.mode, job.quality)
+  const estimateMode = pending ? settings.mode : job.mode;
+  const estimateQuality = pending ? settings.quality : job.quality;
+  const estimateCustomSettings = pending ? settings.customSettings : job.customSettings;
+  const targetSizeBytes = pending ? settings.targetSizeBytes : job.targetSizeBytes;
+  const estimate = job.status !== "completed" &&
+    job.status !== "skipped" &&
+    targetSizeBytes == null
+    ? estimateOutputSize(
+      job.sourceSize,
+      job.metadata,
+      estimateMode,
+      estimateQuality,
+      estimateCustomSettings,
+    )
     : null;
   const savings = estimate
     ? describeSavings(job.sourceSize, estimate.minBytes, estimate.maxBytes)
     : null;
+  const showTargetSize = targetSizeBytes != null &&
+    job.status !== "completed" &&
+    job.status !== "skipped";
+  const hasEstimate = showTargetSize || estimate != null;
+  const estimateBasis = estimate?.basis === "bitrate"
+    ? "Оцінка на основі тривалості та бітрейту медіапотоків"
+    : "Оцінка на основі типових коефіцієнтів обраних параметрів";
 
   return (
     <article
-      className={`queue-item${active ? " is-active" : ""}${estimate ? " has-estimate" : ""}${isDragging ? " is-dragging" : ""}${isDropTarget ? " is-drop-target" : ""}`}
+      className={`queue-item${active ? " is-active" : ""}${hasEstimate ? " has-estimate" : ""}${isDragging ? " is-dragging" : ""}${isDropTarget ? " is-drop-target" : ""}`}
       data-job-id={job.id}
       data-pending={pending}
     >
@@ -222,14 +251,34 @@ export function QueueItem({
             {job.encoder && <span>{job.encoder}</span>}
           </div>
         )}
+        {job.resultWarning && <p className="job-warning">{job.resultWarning}</p>}
         {job.error && <p className="job-error" title={job.error}>{job.error}</p>}
+        {job.diagnosticLog && (
+          <button
+            className="job-log-link"
+            type="button"
+            onClick={() => onOpen(job.diagnosticLog!, true)}
+          >
+            Відкрити технічний журнал
+          </button>
+        )}
       </div>
 
-      {estimate && (
+      {showTargetSize ? (
         <aside
           className="queue-estimate"
-          aria-label={`Орієнтовний розмір після стиснення: ${formatSize(estimate.minBytes)}–${formatSize(estimate.maxBytes)}. ${savings?.description}`}
-          title={`Оцінка залежить від вмісту відео. ${savings?.description}`}
+          aria-label={`${pending ? "Попередній перегляд. " : ""}Цільовий розмір: ${formatSize(targetSizeBytes)}`}
+          title={pending ? "Попередній перегляд за поточними параметрами; завдання не змінено." : undefined}
+        >
+          <span className="queue-estimate-label">Цільовий розмір</span>
+          <strong>{formatSize(targetSizeBytes)}</strong>
+          <span className="queue-estimate-note">фактичний розмір може відрізнятися</span>
+        </aside>
+      ) : estimate && (
+        <aside
+          className="queue-estimate"
+          aria-label={`${pending ? "Попередній перегляд. " : ""}Орієнтовний розмір після стиснення: ${formatSize(estimate.minBytes)}–${formatSize(estimate.maxBytes)}. ${savings?.description}`}
+          title={`${pending ? "Попередній перегляд за поточними параметрами; завдання не змінено. " : `${estimateBasis}; `}Фактичний розмір залежить від вмісту. ${savings?.description}`}
         >
           <div className="queue-estimate-primary">
             <span className="queue-estimate-label">Після стиснення</span>
@@ -253,6 +302,27 @@ export function QueueItem({
       )}
 
       <div className="queue-actions">
+        {!active && !["completed", "skipped"].includes(job.status) && (
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Порівняти фрагменти"
+            title="Попередній перегляд"
+            onClick={() => onPreview(job.id)}
+          >
+            <Icon name="film" size={19} />
+          </button>
+        )}
+        {selectable && (
+          <label className="queue-select">
+            <input
+              type="checkbox"
+              checked={selected}
+              aria-label={`Вибрати ${job.fileName} для групових дій`}
+              onChange={(event) => onSelect(job.id, event.target.checked)}
+            />
+          </label>
+        )}
         {job.status === "completed" && job.outputPath && (
           <button className="icon-button" type="button" aria-label="Показати в теці" title="Показати в теці" onClick={() => onOpen(job.outputPath!, true)}>
             <Icon name="folder" size={20} />

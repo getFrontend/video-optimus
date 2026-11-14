@@ -1,5 +1,8 @@
 use crate::{
-    models::{CompressionMode, EnqueueResult, JobStatus, QualityProfile, VideoJob},
+    models::{
+        CompressionMode, CustomSettings, EnqueueResult, JobStatus, OutputContainer, QualityProfile,
+        VideoJob,
+    },
     state::AppState,
 };
 use std::{
@@ -23,7 +26,10 @@ pub async fn enqueue_paths(
     mode: CompressionMode,
     quality: QualityProfile,
     output_directory: Option<String>,
+    target_size_bytes: Option<u64>,
+    custom_settings: CustomSettings,
 ) -> Result<EnqueueResult, String> {
+    custom_settings.validate()?;
     let tools = state.tools.read().await.clone();
     let mut added = Vec::new();
     let mut rejected = Vec::new();
@@ -89,6 +95,17 @@ pub async fn enqueue_paths(
                 continue;
             }
         };
+        if matches!(mode, CompressionMode::Custom)
+            && matches!(custom_settings.container, OutputContainer::Mp4)
+            && crate::encoding::requires_matroska(&metadata)
+        {
+            rejected.push(format!(
+                "{}: для збереження вкладень або субтитрів цього типу потрібен MKV. \
+                 Виберіть MKV чи Автоматично.",
+                path.file_name().unwrap_or_default().to_string_lossy()
+            ));
+            continue;
+        }
         let source_size = match tokio::fs::metadata(&path).await {
             Ok(metadata) => metadata.len(),
             Err(error) => {
@@ -118,6 +135,7 @@ pub async fn enqueue_paths(
             output_directory: output_directory.clone(),
             mode,
             quality,
+            custom_settings,
             encoder: None,
             error: None,
             created_at: SystemTime::now()
@@ -125,6 +143,9 @@ pub async fn enqueue_paths(
                 .unwrap_or_default()
                 .as_secs(),
             elapsed_seconds: None,
+            target_size_bytes,
+            result_warning: None,
+            diagnostic_log: None,
         };
         state.jobs.write().await.push(job.clone());
         added.push(job);

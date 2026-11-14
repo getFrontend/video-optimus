@@ -1,7 +1,8 @@
 use crate::{
-    models::{JobStatus, VideoJob},
+    models::{AppSettings, JobStatus, VideoJob},
     state::AppState,
 };
+use std::collections::HashSet;
 
 pub async fn move_job(state: &AppState, id: &str, direction: i32) -> Result<(), String> {
     let mut jobs = state.jobs.write().await;
@@ -75,11 +76,53 @@ pub async fn retry_job(state: &AppState, id: &str) -> Result<(), String> {
         .iter_mut()
         .find(|job| job.id == id)
         .ok_or_else(|| "Завдання не знайдено.".to_string())?;
+    if !reset_for_retry(job) {
+        return Err("Повторити можна лише перерване або невдале завдання.".to_string());
+    }
+    drop(jobs);
+    state.persist().await
+}
+
+pub async fn retry_jobs(state: &AppState, ids: &[String]) -> Result<usize, String> {
+    let requested: HashSet<String> = ids.iter().cloned().collect();
+    if requested.is_empty() {
+        return Err("Не вибрано завдань для повторної обробки.".to_string());
+    }
+    let mut jobs = state.jobs.write().await;
+    let count = retry_selected_jobs(&mut jobs, &requested);
+    if count == 0 {
+        return Err("Серед вибраних немає завдань, які можна повторити.".to_string());
+    }
+    drop(jobs);
+    state.persist().await?;
+    Ok(count)
+}
+
+pub async fn apply_settings_to_pending_jobs(
+    state: &AppState,
+    ids: &[String],
+    settings: &AppSettings,
+) -> Result<usize, String> {
+    let requested: HashSet<String> = ids.iter().cloned().collect();
+    if requested.is_empty() {
+        return Err("Не вибрано завдань для оновлення.".to_string());
+    }
+    let mut jobs = state.jobs.write().await;
+    let count = apply_settings_to_jobs(&mut jobs, &requested, settings);
+    if count == 0 {
+        return Err("Серед вибраних немає завдань, що очікують обробки.".to_string());
+    }
+    drop(jobs);
+    state.persist().await?;
+    Ok(count)
+}
+
+fn reset_for_retry(job: &mut VideoJob) -> bool {
     if !matches!(
         job.status,
         JobStatus::Failed | JobStatus::Cancelled | JobStatus::Interrupted
     ) {
-        return Err("Повторити можна лише перерване або невдале завдання.".to_string());
+        return false;
     }
     job.status = JobStatus::Pending;
     job.progress = 0.0;
@@ -88,8 +131,40 @@ pub async fn retry_job(state: &AppState, id: &str) -> Result<(), String> {
     job.output_path = None;
     job.output_size = None;
     job.error = None;
-    drop(jobs);
-    state.persist().await
+    job.result_warning = None;
+    job.diagnostic_log = None;
+    true
+}
+
+fn retry_selected_jobs(jobs: &mut [VideoJob], requested: &HashSet<String>) -> usize {
+    let mut count = 0;
+    for job in jobs.iter_mut().filter(|job| requested.contains(&job.id)) {
+        if reset_for_retry(job) {
+            count += 1;
+        }
+    }
+    count
+}
+
+fn apply_settings_to_jobs(
+    jobs: &mut [VideoJob],
+    requested: &HashSet<String>,
+    settings: &AppSettings,
+) -> usize {
+    let mut count = 0;
+    for job in jobs
+        .iter_mut()
+        .filter(|job| requested.contains(&job.id))
+        .filter(|job| job.status == JobStatus::Pending)
+    {
+        job.mode = settings.mode;
+        job.quality = settings.quality;
+        job.output_directory = settings.output_directory.clone();
+        job.target_size_bytes = settings.target_size_bytes;
+        job.custom_settings = settings.custom_settings;
+        count += 1;
+    }
+    count
 }
 
 pub async fn skip_job(state: &AppState, id: &str) -> Result<(), String> {
@@ -134,8 +209,12 @@ pub async fn clear_completed(state: &AppState) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::reorder_pending_jobs;
-    use crate::models::{CompressionMode, JobStatus, QualityProfile, VideoJob, VideoMetadata};
+    use super::{apply_settings_to_jobs, reorder_pending_jobs, retry_selected_jobs};
+    use crate::models::{
+        AppSettings, CompressionMode, CustomDevice, CustomSettings, CustomVideoCodec, JobStatus,
+        QualityProfile, VideoJob, VideoMetadata,
+    };
+    use std::collections::HashSet;
 
     fn job(id: &str, status: JobStatus) -> VideoJob {
         VideoJob {
@@ -154,6 +233,8 @@ mod tests {
                 is_hdr: false,
                 audio_tracks: 1,
                 subtitle_tracks: 0,
+                video_streams: 1,
+                ..Default::default()
             },
             status,
             progress: 0.0,
@@ -164,10 +245,14 @@ mod tests {
             output_directory: None,
             mode: CompressionMode::Smart,
             quality: QualityProfile::Balanced,
+            custom_settings: Default::default(),
             encoder: None,
             error: None,
             created_at: 0,
             elapsed_seconds: None,
+            target_size_bytes: None,
+            result_warning: None,
+            diagnostic_log: None,
         }
     }
 
@@ -185,5 +270,55 @@ mod tests {
             jobs.iter().map(|job| job.id.as_str()).collect::<Vec<_>>(),
             ["b", "finished", "c", "a"],
         );
+    }
+
+    #[test]
+    fn bulk_settings_only_change_pending_jobs() {
+        let mut jobs = vec![
+            job("pending", JobStatus::Pending),
+            job("active", JobStatus::Encoding),
+        ];
+        let requested = HashSet::from(["pending".to_string(), "active".to_string()]);
+        let settings = AppSettings {
+            mode: CompressionMode::Maximum,
+            quality: QualityProfile::Compact,
+            output_directory: Some("C:/output".to_string()),
+            target_size_bytes: Some(500_000_000),
+            custom_settings: CustomSettings {
+                codec: CustomVideoCodec::Hevc,
+                device: CustomDevice::Cpu,
+                ..Default::default()
+            },
+        };
+
+        let changed = apply_settings_to_jobs(&mut jobs, &requested, &settings);
+
+        assert_eq!(changed, 1);
+        assert!(matches!(jobs[0].mode, CompressionMode::Maximum));
+        assert_eq!(jobs[0].target_size_bytes, Some(500_000_000));
+        assert!(matches!(
+            jobs[0].custom_settings.codec,
+            CustomVideoCodec::Hevc
+        ));
+        assert!(matches!(jobs[1].mode, CompressionMode::Smart));
+    }
+
+    #[test]
+    fn bulk_retry_only_requeues_retryable_jobs() {
+        let mut jobs = vec![
+            job("failed", JobStatus::Failed),
+            job("pending", JobStatus::Pending),
+            job("cancelled", JobStatus::Cancelled),
+        ];
+        let requested = HashSet::from([
+            "failed".to_string(),
+            "pending".to_string(),
+            "cancelled".to_string(),
+        ]);
+
+        assert_eq!(retry_selected_jobs(&mut jobs, &requested), 2);
+        assert_eq!(jobs[0].status, JobStatus::Pending);
+        assert_eq!(jobs[1].status, JobStatus::Pending);
+        assert_eq!(jobs[2].status, JobStatus::Pending);
     }
 }
