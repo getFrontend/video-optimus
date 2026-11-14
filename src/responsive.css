@@ -9,10 +9,10 @@
   .settings-open .page-content { padding-right: var(--gutter); }
 }
 @media (max-width: 48rem) {
-  .topbar { min-height: 2rem; padding-inline: var(--gutter); }
+  .topbar { min-height: 2rem; padding-inline: var(--gutter); padding-left: var(--space-md); }
   .topbar-right { gap: var(--space-sm); }
   .local-pill { display: none; }
-  .workspace-nav { top: 2rem; }
+  .workspace-nav { top: 0; }
 }
 @media (max-width: 40rem) {
   .page-content { padding-top: var(--space-lg); }
@@ -50,7 +50,7 @@
 @media (max-width: 22.5rem) {
   .topbar { align-items: flex-start; flex-wrap: wrap; gap: var(--space-xs); padding-block: var(--space-sm); }
   .topbar-right { width: 100%; }
-  .workspace-nav { top: 4.75rem; }
+  .workspace-nav { top: 0; }
   .workspace-tab { padding-inline: var(--space-2xs); font-size: 0.75rem; }
   .workspace-tab-content { scroll-margin-top: 6rem; }
   .drop-actions { align-items: stretch; flex-direction: column; }

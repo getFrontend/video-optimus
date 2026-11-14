@@ -79,105 +79,107 @@ export default function App() {
         {optimizer.desktop && <WindowControls />}
       </header>
 
-      <div className="page-content">
-        <section className="welcome-row">
-          <div className="welcome-copy">
-            <h1>Оптимізація відео</h1>
-            <p>Додавайте відео по одному або цілою текою. Оригінали залишаються незмінними.</p>
-          </div>
-          <div className="welcome-stats">
-            <div className="welcome-stat">
-              <span>Очікують</span>
-              <strong>{pendingCount}</strong>
+      <div className="page-scroll-area">
+        <div className="page-content">
+          <section className="welcome-row">
+            <div className="welcome-copy">
+              <h1>Оптимізація відео</h1>
+              <p>Додавайте відео по одному або цілою текою. Оригінали залишаються незмінними.</p>
             </div>
-            <div className="welcome-stat">
-              <span>Готово</span>
-              <strong>{completedCount}</strong>
-            </div>
-            <div className="welcome-stat saved-stat">
-              <span>Заощаджено</span>
-              <strong>{formatSize(optimizer.snapshot?.totalSavedBytes ?? 0)}</strong>
-            </div>
-          </div>
-        </section>
-
-        {!optimizer.desktop && (
-          <div className="runtime-alert">
-            <Icon name="info" size={20} />
-            <div>
-              <strong>Це вебперегляд інтерфейсу</strong>
-              <span>Щоб вибирати файли й обробляти їх, запустіть програму командами <code>npm install</code> і <code>npm run tauri dev</code>.</span>
-            </div>
-          </div>
-        )}
-
-        <div className="workbench">
-          <VideoWorkspace
-            optimizer={optimizer}
-            jobs={jobs}
-            pendingCount={pendingCount}
-            completedCount={completedCount}
-          />
-
-          <aside
-            className={`settings-drawer${settingsOpen ? " is-open" : ""}`}
-            id="settings-drawer"
-            aria-label="Параметри стиснення та стан системи"
-            aria-hidden={!settingsOpen}
-            inert={!settingsOpen}
-          >
-            <button
-              ref={settingsCloseRef}
-              className="settings-drawer-collapse"
-              type="button"
-              aria-label="Згорнути бічну панель параметрів"
-              aria-controls="settings-drawer"
-              aria-expanded={true}
-              onClick={() => setSettingsOpen(false)}
-            >
-              <Icon name="close" size={18} />
-            </button>
-            <div
-              className="settings-drawer-scroll-area"
-              id="settings-scroll-area"
-              ref={settingsScrollRef}
-              tabIndex={0}
-            >
-              <div className="settings-drawer-content">
-                <SettingsPanel
-                  settings={optimizer.settings}
-                  onMode={optimizer.setMode}
-                  onQuality={optimizer.setQuality}
-                  onOutput={optimizer.chooseOutput}
-                />
-                <SystemPanel
-                  runtime={optimizer.snapshot?.runtime ?? null}
-                  desktop={optimizer.desktop}
-                  checkingRuntime={optimizer.checkingRuntime}
-                  onOpenSetup={() => setFfmpegHelpOpen(true)}
-                />
+            <div className="welcome-stats">
+              <div className="welcome-stat">
+                <span>Очікують</span>
+                <strong>{pendingCount}</strong>
+              </div>
+              <div className="welcome-stat">
+                <span>Готово</span>
+                <strong>{completedCount}</strong>
+              </div>
+              <div className="welcome-stat saved-stat">
+                <span>Заощаджено</span>
+                <strong>{formatSize(optimizer.snapshot?.totalSavedBytes ?? 0)}</strong>
               </div>
             </div>
-            <SettingsScrollbar
-              viewportRef={settingsScrollRef}
-              viewportId="settings-scroll-area"
+          </section>
+
+          {!optimizer.desktop && (
+            <div className="runtime-alert">
+              <Icon name="info" size={20} />
+              <div>
+                <strong>Це вебперегляд інтерфейсу</strong>
+                <span>Щоб вибирати файли й обробляти їх, запустіть програму командами <code>npm install</code> і <code>npm run tauri dev</code>.</span>
+              </div>
+            </div>
+          )}
+
+          <div className="workbench">
+            <VideoWorkspace
+              optimizer={optimizer}
+              jobs={jobs}
+              pendingCount={pendingCount}
+              completedCount={completedCount}
             />
-          </aside>
+
+            <aside
+              className={`settings-drawer${settingsOpen ? " is-open" : ""}`}
+              id="settings-drawer"
+              aria-label="Параметри стиснення та стан системи"
+              aria-hidden={!settingsOpen}
+              inert={!settingsOpen}
+            >
+              <button
+                ref={settingsCloseRef}
+                className="settings-drawer-collapse"
+                type="button"
+                aria-label="Згорнути бічну панель параметрів"
+                aria-controls="settings-drawer"
+                aria-expanded={true}
+                onClick={() => setSettingsOpen(false)}
+              >
+                <Icon name="close" size={18} />
+              </button>
+              <div
+                className="settings-drawer-scroll-area"
+                id="settings-scroll-area"
+                ref={settingsScrollRef}
+                tabIndex={0}
+              >
+                <div className="settings-drawer-content">
+                  <SettingsPanel
+                    settings={optimizer.settings}
+                    onMode={optimizer.setMode}
+                    onQuality={optimizer.setQuality}
+                    onOutput={optimizer.chooseOutput}
+                  />
+                  <SystemPanel
+                    runtime={optimizer.snapshot?.runtime ?? null}
+                    desktop={optimizer.desktop}
+                    checkingRuntime={optimizer.checkingRuntime}
+                    onOpenSetup={() => setFfmpegHelpOpen(true)}
+                  />
+                </div>
+              </div>
+              <SettingsScrollbar
+                viewportRef={settingsScrollRef}
+                viewportId="settings-scroll-area"
+              />
+            </aside>
+          </div>
+          {!settingsOpen && (
+            <button
+              ref={settingsToggleRef}
+              className="settings-reopen"
+              type="button"
+              aria-label="Відкрити параметри стиснення"
+              aria-controls="settings-drawer"
+              aria-expanded={false}
+              title="Параметри стиснення"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Icon name="chevron" size={18} />
+            </button>
+          )}
         </div>
-        {!settingsOpen && (
-          <button
-            ref={settingsToggleRef}
-            className="settings-reopen"
-            type="button"
-            aria-label="Відкрити параметри стиснення"
-            aria-controls="settings-drawer"
-            aria-expanded={false}
-            title="Параметри стиснення"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Icon name="chevron" size={18} />
-          </button>
-        )}
       </div>
 
       <FfmpegSetupDialog
