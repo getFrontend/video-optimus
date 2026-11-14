@@ -2,7 +2,10 @@ use crate::environment::refresh_process_environment;
 use crate::models::{EncoderAvailability, RuntimeInfo, VideoMetadata};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
-use tokio::{process::Command, time::Duration};
+use tokio::{
+    process::Command,
+    time::{timeout, Duration},
+};
 
 #[derive(Clone)]
 pub struct MediaTools {
@@ -176,6 +179,47 @@ impl MediaTools {
                 .filter(|stream| stream["codec_type"] == "subtitle")
                 .count() as u32,
         })
+    }
+
+    pub async fn thumbnail(&self, path: &Path, duration_seconds: f64) -> Result<Vec<u8>, String> {
+        let ffmpeg = self.ffmpeg.as_ref().ok_or_else(missing_tools)?;
+        let seek_seconds = if duration_seconds.is_finite() {
+            (duration_seconds.max(0.0) * 0.1).min(30.0)
+        } else {
+            0.0
+        };
+        let result = timeout(
+            Duration::from_secs(15),
+            Command::new(ffmpeg)
+                .args(["-hide_banner", "-loglevel", "error", "-ss"])
+                .arg(format!("{seek_seconds:.3}"))
+                .args(["-i"])
+                .arg(path)
+                .args([
+                    "-frames:v",
+                    "1",
+                    "-an",
+                    "-vf",
+                    "scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2",
+                    "-q:v",
+                    "5",
+                    "-f",
+                    "image2pipe",
+                    "-vcodec",
+                    "mjpeg",
+                    "pipe:1",
+                ])
+                .kill_on_drop(true)
+                .output(),
+        )
+        .await
+        .map_err(|_| "Час створення мініатюри вичерпано.".to_string())?
+        .map_err(|error| format!("Не вдалося створити мініатюру: {error}"))?;
+
+        if !result.status.success() || result.stdout.is_empty() {
+            return Err("Не вдалося створити мініатюру відео.".to_string());
+        }
+        Ok(result.stdout)
     }
 }
 

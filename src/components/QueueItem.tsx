@@ -1,14 +1,92 @@
+import { useRef } from "react";
 import type { VideoJob } from "../types";
 import { formatDuration, formatFrameRate, formatSize, statusLabel } from "../lib/format";
 import { estimateOutputSize } from "../lib/estimate";
 import { Icon } from "./Icon";
+import { VideoThumbnail } from "./VideoThumbnail";
 
 const activeStatuses = new Set(["analyzing", "preparing", "encoding", "validating"]);
+
+type SavingsTone = "saving" | "variable" | "increase";
+
+type SavingsSummary = {
+  label: string;
+  compactValue: string;
+  detailValue: string;
+  description: string;
+  direction: string;
+  tone: SavingsTone;
+};
+
+function describeSavings(
+  sourceSize: number,
+  minBytes: number,
+  maxBytes: number,
+): SavingsSummary {
+  const minSavings = sourceSize - maxBytes;
+  const maxSavings = sourceSize - minBytes;
+
+  if (minSavings >= 0) {
+    const minPercent = Math.round((minSavings / sourceSize) * 100);
+    const maxPercent = Math.round((maxSavings / sourceSize) * 100);
+    const detailValue = minSavings > 0
+      ? `${formatSize(minSavings)}–${formatSize(maxSavings)}`
+      : `до ${formatSize(maxSavings)}`;
+    return {
+      label: "Можлива економія",
+      compactValue: minSavings > 0
+        ? `${minPercent}–${maxPercent}%`
+        : `до ${maxPercent}%`,
+      detailValue,
+      description: `Можлива економія ${detailValue}, або ${minPercent}–${maxPercent}% від початкового розміру.`,
+      direction: "менше",
+      tone: "saving" as SavingsTone,
+    };
+  }
+
+  if (maxSavings > 0) {
+    const maxIncrease = Math.abs(minSavings);
+    const maxSavingPercent = Math.round((maxSavings / sourceSize) * 100);
+    const maxIncreasePercent = Math.round((maxIncrease / sourceSize) * 100);
+    return {
+      label: "Результат залежить від відео",
+      compactValue: `−${maxSavingPercent}% / +${maxIncreasePercent}%`,
+      detailValue: `−${formatSize(maxSavings)} / +${formatSize(maxIncrease)}`,
+      description: `Розмір може зменшитись до ${formatSize(maxSavings)} (${maxSavingPercent}%) або збільшитись до ${formatSize(maxIncrease)} (${maxIncreasePercent}%).`,
+      direction: "менше / більше",
+      tone: "variable" as SavingsTone,
+    };
+  }
+
+  const minIncrease = minBytes - sourceSize;
+  const maxIncrease = maxBytes - sourceSize;
+  const detailValue = minIncrease > 0
+    ? `${formatSize(minIncrease)}–${formatSize(maxIncrease)}`
+    : `до ${formatSize(maxIncrease)}`;
+  const minPercent = Math.round((minIncrease / sourceSize) * 100);
+  const maxPercent = Math.round((maxIncrease / sourceSize) * 100);
+  return {
+    label: "Можливе збільшення",
+    compactValue: minIncrease > 0
+      ? `${minPercent}–${maxPercent}%`
+      : `до ${maxPercent}%`,
+    detailValue,
+    description: `Розмір може збільшитись ${detailValue}.`,
+    direction: "більше",
+    tone: "increase" as SavingsTone,
+  };
+}
 
 export function QueueItem({
   job,
   index,
+  isDragging,
+  isDropTarget,
   onReorder,
+  onDragStart,
+  onDragComplete,
+  onDragCancel,
+  onDragTarget,
   onRemove,
   onRetry,
   onSkip,
@@ -16,47 +94,94 @@ export function QueueItem({
 }: {
   job: VideoJob;
   index: number;
+  isDragging: boolean;
+  isDropTarget: boolean;
   onReorder: (id: string, index: number) => void;
+  onDragStart: (id: string) => void;
+  onDragComplete: (targetId: string | null) => void;
+  onDragCancel: () => void;
+  onDragTarget: (id: string | null) => void;
   onRemove: (id: string) => void;
   onRetry: (id: string) => void;
   onSkip: (id: string) => void;
   onOpen: (path: string, reveal?: boolean) => void;
 }) {
+  const activePointerId = useRef<number | null>(null);
   const active = activeStatuses.has(job.status);
+  const pending = job.status === "pending";
   const saved = job.outputSize == null ? 0 : Math.max(0, job.sourceSize - job.outputSize);
   const percentSaved = job.outputSize == null
     ? 0
     : Math.round((saved / Math.max(job.sourceSize, 1)) * 100);
   const progress = Math.min(100, Math.max(0, job.progress));
-  const estimate = job.status === "pending"
+  const estimate = job.status !== "completed" && job.status !== "skipped"
     ? estimateOutputSize(job.sourceSize, job.mode, job.quality)
+    : null;
+  const savings = estimate
+    ? describeSavings(job.sourceSize, estimate.minBytes, estimate.maxBytes)
     : null;
 
   return (
     <article
-      className={`queue-item${active ? " is-active" : ""}`}
-      draggable={job.status === "pending"}
-      onDragStart={(event) => {
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", job.id);
-      }}
-      onDragOver={(event) => {
-        if (job.status === "pending") event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        const draggedId = event.dataTransfer.getData("text/plain");
-        if (job.status === "pending" && draggedId && draggedId !== job.id) {
-          onReorder(draggedId, index);
-        }
-      }}
+      className={`queue-item${active ? " is-active" : ""}${estimate ? " has-estimate" : ""}${isDragging ? " is-dragging" : ""}${isDropTarget ? " is-drop-target" : ""}`}
+      data-job-id={job.id}
+      data-pending={pending}
     >
-      <div className="queue-grip" aria-hidden="true">
+      <button
+        className="queue-grip"
+        type="button"
+        aria-label={`Змінити порядок: ${job.fileName}`}
+        title={pending ? "Перетягніть або натискайте стрілки, щоб змінити порядок" : undefined}
+        disabled={!pending}
+        onPointerDown={(event) => {
+          if (!pending || event.button !== 0) return;
+          event.preventDefault();
+          activePointerId.current = event.pointerId;
+          event.currentTarget.focus();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          onDragStart(job.id);
+        }}
+        onPointerMove={(event) => {
+          if (activePointerId.current !== event.pointerId) return;
+          const row = document
+            .elementFromPoint(event.clientX, event.clientY)
+            ?.closest<HTMLElement>(".queue-item[data-job-id]");
+          onDragTarget(row?.dataset.pending === "true" ? row.dataset.jobId ?? null : null);
+        }}
+        onPointerUp={(event) => {
+          if (activePointerId.current !== event.pointerId) return;
+          activePointerId.current = null;
+          const row = document
+            .elementFromPoint(event.clientX, event.clientY)
+            ?.closest<HTMLElement>(".queue-item[data-job-id]");
+          onDragComplete(row?.dataset.pending === "true" ? row.dataset.jobId ?? null : null);
+        }}
+        onPointerCancel={(event) => {
+          if (activePointerId.current !== event.pointerId) return;
+          activePointerId.current = null;
+          onDragCancel();
+        }}
+        onKeyDown={(event) => {
+          if (!pending || index < 0) return;
+          if (event.key === "ArrowUp" && index > 0) {
+            event.preventDefault();
+            onReorder(job.id, index - 1);
+          } else if (event.key === "ArrowDown") {
+            event.preventDefault();
+            onReorder(job.id, index + 1);
+          }
+        }}
+      >
         <Icon name="grip" size={16} />
-      </div>
-      <div className={`file-mark codec-${job.metadata.codec}`}>
-        <Icon name="film" size={24} />
-      </div>
+      </button>
+      <VideoThumbnail
+        jobId={job.id}
+        fileName={job.fileName}
+        codec={job.metadata.codec}
+        onPlay={() => onOpen(
+          job.status === "completed" && job.outputPath ? job.outputPath : job.path,
+        )}
+      />
 
       <div className="queue-main">
         <div className="queue-title-row">
@@ -73,15 +198,6 @@ export function QueueItem({
           {job.metadata.isVfr && <span className="metadata-tag">VFR</span>}
           {job.metadata.isHdr && <span className="metadata-tag">HDR</span>}
         </div>
-        {estimate && (
-          <div
-            className="size-estimate"
-            title="Фактичний розмір залежить від вмісту відео й може відрізнятися від оцінки."
-          >
-            <span>Орієнтовно після стиснення:</span>
-            <strong>{formatSize(estimate.minBytes)}–{formatSize(estimate.maxBytes)}</strong>
-          </div>
-        )}
         {active && (
           <div className="queue-progress">
             <div
@@ -109,30 +225,52 @@ export function QueueItem({
         {job.error && <p className="job-error" title={job.error}>{job.error}</p>}
       </div>
 
+      {estimate && (
+        <aside
+          className="queue-estimate"
+          aria-label={`Орієнтовний розмір після стиснення: ${formatSize(estimate.minBytes)}–${formatSize(estimate.maxBytes)}. ${savings?.description}`}
+          title={`Оцінка залежить від вмісту відео. ${savings?.description}`}
+        >
+          <div className="queue-estimate-primary">
+            <span className="queue-estimate-label">Після стиснення</span>
+            <strong className="queue-estimate-output">{formatSize(estimate.minBytes)}–{formatSize(estimate.maxBytes)}</strong>
+          </div>
+          {savings && (
+            <>
+              <div className={`queue-estimate-benefit is-${savings.tone}`}>
+                <span className="queue-estimate-benefit-label">{savings.label}</span>
+                <strong className="queue-estimate-benefit-value">{savings.detailValue}</strong>
+              </div>
+              <span className={`queue-estimate-percent is-${savings.tone}`}>
+                {savings.tone === "saving" && <Icon name="arrowDown" size={12} />}
+                {savings.tone === "increase" && <Icon name="arrowUp" size={12} />}
+                <strong>{savings.compactValue}</strong>
+                <span>{savings.direction}</span>
+              </span>
+            </>
+          )}
+        </aside>
+      )}
+
       <div className="queue-actions">
         {job.status === "completed" && job.outputPath && (
-          <>
-            <button className="icon-button result-action" type="button" aria-label="Відтворити відео" title="Відтворити відео" onClick={() => onOpen(job.outputPath!)}>
-              <Icon name="play" size={20} />
-            </button>
-            <button className="icon-button" type="button" aria-label="Показати в теці" title="Показати в теці" onClick={() => onOpen(job.outputPath!, true)}>
-              <Icon name="folder" size={20} />
-            </button>
-          </>
+          <button className="icon-button" type="button" aria-label="Показати в теці" title="Показати в теці" onClick={() => onOpen(job.outputPath!, true)}>
+            <Icon name="folder" size={20} />
+          </button>
         )}
         {job.status === "pending" && (
           <button className="icon-button" type="button" aria-label="Пропустити відео" title="Пропустити відео" onClick={() => onSkip(job.id)}>
             <Icon name="skipForward" size={20} />
           </button>
         )}
-{["failed", "cancelled", "interrupted"].includes(job.status) && (
+        {["failed", "cancelled", "interrupted"].includes(job.status) && (
           <button className="icon-button retry-action" type="button" aria-label="Повторити завдання" title="Повторити" onClick={() => onRetry(job.id)}>
             <Icon name="refresh" size={20} />
           </button>
         )}
         {!active && (
           <button className="icon-button danger-action" type="button" aria-label="Вилучити з черги" title="Вилучити з черги" onClick={() => onRemove(job.id)}>
-            <Icon name="trash" size={20} />
+            <Icon name="queueRemove" size={20} />
           </button>
         )}
       </div>

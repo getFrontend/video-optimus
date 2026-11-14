@@ -1,4 +1,7 @@
-use crate::{models::JobStatus, state::AppState};
+use crate::{
+    models::{JobStatus, VideoJob},
+    state::AppState,
+};
 
 pub async fn move_job(state: &AppState, id: &str, direction: i32) -> Result<(), String> {
     let mut jobs = state.jobs.write().await;
@@ -22,27 +25,48 @@ pub async fn move_job(state: &AppState, id: &str, direction: i32) -> Result<(), 
 
 pub async fn reorder_job(state: &AppState, id: &str, target_index: usize) -> Result<(), String> {
     let mut jobs = state.jobs.write().await;
-    let source_index = jobs
-        .iter()
-        .position(|job| job.id == id)
-        .ok_or_else(|| "Завдання не знайдено.".to_string())?;
-    if jobs[source_index].status != JobStatus::Pending {
-        return Err("Можна переміщувати лише завдання в очікуванні.".to_string());
-    }
-    let pending: Vec<usize> = jobs
-        .iter()
-        .enumerate()
-        .filter_map(|(index, job)| (job.status == JobStatus::Pending).then_some(index))
-        .collect();
-    let target_index = target_index.min(pending.len().saturating_sub(1));
-    let Some(&target_queue_index) = pending.get(target_index) else {
+    if !reorder_pending_jobs(&mut jobs, id, target_index)? {
         return Ok(());
-    };
-    let job = jobs.remove(source_index);
-    let insertion_index = target_queue_index.min(jobs.len());
-    jobs.insert(insertion_index, job);
+    }
     drop(jobs);
     state.persist().await
+}
+
+fn reorder_pending_jobs(
+    jobs: &mut [VideoJob],
+    id: &str,
+    target_index: usize,
+) -> Result<bool, String> {
+    let mut pending_jobs: Vec<VideoJob> = jobs
+        .iter()
+        .filter(|job| job.status == JobStatus::Pending)
+        .cloned()
+        .collect();
+    let source_index = pending_jobs
+        .iter()
+        .position(|job| job.id == id)
+        .ok_or_else(|| {
+            if jobs.iter().any(|job| job.id == id) {
+                "Переміщувати можна лише завдання в очікуванні.".to_string()
+            } else {
+                "Завдання не знайдено.".to_string()
+            }
+        })?;
+    let target_index = target_index.min(pending_jobs.len() - 1);
+    if source_index == target_index {
+        return Ok(false);
+    }
+
+    let moved_job = pending_jobs.remove(source_index);
+    pending_jobs.insert(target_index, moved_job);
+    for (job, reordered_job) in jobs
+        .iter_mut()
+        .filter(|job| job.status == JobStatus::Pending)
+        .zip(pending_jobs)
+    {
+        *job = reordered_job;
+    }
+    Ok(true)
 }
 
 pub async fn retry_job(state: &AppState, id: &str) -> Result<(), String> {
@@ -106,4 +130,60 @@ pub async fn clear_completed(state: &AppState) -> Result<(), String> {
         .await
         .retain(|job| !matches!(job.status, JobStatus::Completed | JobStatus::Skipped));
     state.persist().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::reorder_pending_jobs;
+    use crate::models::{CompressionMode, JobStatus, QualityProfile, VideoJob, VideoMetadata};
+
+    fn job(id: &str, status: JobStatus) -> VideoJob {
+        VideoJob {
+            id: id.to_string(),
+            file_name: format!("{id}.mp4"),
+            path: format!("C:/videos/{id}.mp4"),
+            source_size: 1024,
+            metadata: VideoMetadata {
+                duration_seconds: 1.0,
+                width: 1280,
+                height: 720,
+                frame_rate: "30/1".to_string(),
+                codec: "h264".to_string(),
+                bitrate: None,
+                is_vfr: false,
+                is_hdr: false,
+                audio_tracks: 1,
+                subtitle_tracks: 0,
+            },
+            status,
+            progress: 0.0,
+            speed: None,
+            eta_seconds: None,
+            output_path: None,
+            output_size: None,
+            output_directory: None,
+            mode: CompressionMode::Smart,
+            quality: QualityProfile::Balanced,
+            encoder: None,
+            error: None,
+            created_at: 0,
+            elapsed_seconds: None,
+        }
+    }
+
+    #[test]
+    fn reorders_pending_jobs_without_moving_other_statuses() {
+        let mut jobs = vec![
+            job("a", JobStatus::Pending),
+            job("finished", JobStatus::Completed),
+            job("b", JobStatus::Pending),
+            job("c", JobStatus::Pending),
+        ];
+
+        assert!(reorder_pending_jobs(&mut jobs, "a", 2).unwrap());
+        assert_eq!(
+            jobs.iter().map(|job| job.id.as_str()).collect::<Vec<_>>(),
+            ["b", "finished", "c", "a"],
+        );
+    }
 }

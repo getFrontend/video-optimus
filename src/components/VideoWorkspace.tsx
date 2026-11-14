@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DropZone } from "./DropZone";
 import { Icon } from "./Icon";
 import { QueueItem } from "./QueueItem";
@@ -20,8 +20,14 @@ export function VideoWorkspace({
   completedCount: number;
 }) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("add");
+  const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const draggedJobRef = useRef<string | null>(null);
   const tabContentRef = useRef<HTMLDivElement>(null);
-  const isEmpty = Boolean(optimizer.snapshot && jobs.length === 0);
+  const queuePanelRef = useRef<HTMLElement>(null);
+  const positionsBeforeReorder = useRef<Map<string, DOMRect> | null>(null);
+  const previousJobIds = useRef<Set<string> | null>(null);
+  const hasSnapshot = optimizer.snapshot !== null;
   const activeJob = jobs.find((job) => ACTIVE.includes(job.status));
   const processingJobs = jobs.filter((job) => job.status !== "completed");
   const activeJobs = jobs.filter((job) => ACTIVE.includes(job.status));
@@ -33,13 +39,95 @@ export function VideoWorkspace({
     let position = 0;
     return new Map(jobs.filter((job) => job.status === "pending").map((job) => [job.id, position++]));
   }, [jobs]);
+  const pendingOrder = pendingJobs.map((job) => job.id).join("\0");
+  const queueActionReady = Boolean(
+    pendingCount > 0 ||
+    optimizer.snapshot?.queuePaused ||
+    optimizer.snapshot?.queueRunning,
+  );
 
-  const selectTab = (tab: WorkspaceTab) => {
+  const selectTab = useCallback((tab: WorkspaceTab) => {
     setActiveTab(tab);
     window.requestAnimationFrame(() => {
       tabContentRef.current?.scrollIntoView({ block: "start" });
     });
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!hasSnapshot) return;
+
+    const currentJobIds = new Set(jobs.map((job) => job.id));
+    const previousIds = previousJobIds.current;
+    previousJobIds.current = currentJobIds;
+
+    if (previousIds && jobs.some((job) => !previousIds.has(job.id))) {
+      selectTab("processing");
+    }
+  }, [hasSnapshot, jobs, selectTab]);
+
+  const reorderJob = useCallback((id: string, targetIndex: number) => {
+    const sourceIndex = pendingIndex.get(id);
+    const boundedTarget = Math.max(0, Math.min(targetIndex, pendingJobs.length - 1));
+    if (sourceIndex == null || sourceIndex === boundedTarget) return;
+
+    const positions = new Map<string, DOMRect>();
+    queuePanelRef.current?.querySelectorAll<HTMLElement>("[data-job-id]").forEach((item) => {
+      const jobId = item.dataset.jobId;
+      if (jobId) positions.set(jobId, item.getBoundingClientRect());
+    });
+    positionsBeforeReorder.current = positions;
+    optimizer.reorderJob(id, boundedTarget);
+  }, [optimizer, pendingIndex, pendingJobs.length]);
+
+  const beginDrag = useCallback((id: string) => {
+    draggedJobRef.current = id;
+    setDraggedJobId(id);
+  }, []);
+
+  const completeDrag = useCallback((targetId: string | null) => {
+    const draggedId = draggedJobRef.current;
+    draggedJobRef.current = null;
+    setDraggedJobId(null);
+    setDropTargetId(null);
+
+    const targetIndex = targetId ? pendingIndex.get(targetId) : undefined;
+    if (draggedId && targetIndex != null) reorderJob(draggedId, targetIndex);
+  }, [pendingIndex, reorderJob]);
+
+  const cancelDrag = useCallback(() => {
+    draggedJobRef.current = null;
+    setDraggedJobId(null);
+    setDropTargetId(null);
+  }, []);
+
+  const updateDropTarget = useCallback((id: string | null) => {
+    setDropTargetId(id && pendingIndex.has(id) ? id : null);
+  }, [pendingIndex]);
+
+  useLayoutEffect(() => {
+    const previousPositions = positionsBeforeReorder.current;
+    if (!previousPositions) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      positionsBeforeReorder.current = null;
+      return;
+    }
+
+    queuePanelRef.current?.querySelectorAll<HTMLElement>("[data-job-id]").forEach((item) => {
+      const jobId = item.dataset.jobId;
+      const previous = jobId ? previousPositions.get(jobId) : undefined;
+      if (!previous) return;
+
+      const offsetY = previous.top - item.getBoundingClientRect().top;
+      if (Math.abs(offsetY) < 1) return;
+
+      const animation = item.animate(
+        [{ transform: `translateY(${offsetY}px)` }, { transform: "translateY(0)" }],
+        { duration: 240, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" },
+      );
+      animation.onfinish = () => animation.cancel();
+    });
+    positionsBeforeReorder.current = null;
+  }, [pendingOrder]);
 
   const renderJobs = (items: VideoJob[]) => (
     <div className="queue-list">
@@ -48,7 +136,13 @@ export function VideoWorkspace({
           key={job.id}
           job={job}
           index={pendingIndex.get(job.id) ?? -1}
-          onReorder={optimizer.reorderJob}
+          isDragging={draggedJobId === job.id}
+          isDropTarget={dropTargetId === job.id && draggedJobId !== job.id}
+          onReorder={reorderJob}
+          onDragStart={beginDrag}
+          onDragComplete={completeDrag}
+          onDragCancel={cancelDrag}
+          onDragTarget={updateDropTarget}
           onRemove={optimizer.removeJob}
           onRetry={optimizer.retryJob}
           onSkip={optimizer.skipJob}
@@ -64,7 +158,6 @@ export function VideoWorkspace({
         activeTab={activeTab}
         processingCount={processingJobs.length}
         completedCount={completedCount}
-        optimizer={optimizer}
         onSelect={selectTab}
       />
 
@@ -80,44 +173,22 @@ export function VideoWorkspace({
             <DropZone
               available={optimizer.desktop && Boolean(optimizer.snapshot?.runtime.ready)}
               dragging={optimizer.dragging}
-              empty={isEmpty}
               onFiles={optimizer.chooseFiles}
               onFolder={optimizer.chooseFolder}
             />
-            {processingJobs.length > 0 && (
-              <div className="next-step-panel">
-                <div>
-                  <strong>
-                    {pendingCount > 0
-                      ? `До обробки готово відео: ${pendingCount}`
-                      : "Обробка відео вже триває"}
-                  </strong>
-                  <span>Перейдіть до обробки, щоб стежити за файлами та керувати ними.</span>
-                </div>
-                <button
-                  className="button button-secondary"
-                  type="button"
-                  onClick={() => selectTab("processing")}
-                >
-                  Перейти до обробки
-                  <Icon name="arrowRight" size={16} />
-                </button>
-              </div>
-            )}
           </div>
         )}
 
         {activeTab === "processing" && (
-          <section className="queue-panel">
+          <section className="queue-panel" aria-label="Обробка відео" ref={queuePanelRef}>
             <div className="queue-heading">
-              <h2>Обробка відео <span className="queue-count">{processingJobs.length}</span></h2>
+              <div className="queue-sequence-heading">
+                <Icon name="clock" size={20} />
+                <strong>Послідовна обробка</strong>
+                <span aria-hidden="true">·</span>
+                <span>Одне відео за раз</span>
+              </div>
               <div className="queue-heading-actions">
-                {pendingCount > 0 && (
-                  <button className="button button-quiet" type="button" onClick={optimizer.cancelPending}>
-                    <Icon name="close" size={16} />
-                    Скасувати очікування
-                  </button>
-                )}
                 {activeJob && (
                   <button className="button button-quiet button-cancel" type="button" onClick={optimizer.cancelCurrent}>
                     <Icon name="close" size={16} />
@@ -154,7 +225,6 @@ export function VideoWorkspace({
                 )}
                 {pendingJobs.length > 0 && (
                   <section className="queue-group" aria-label="Відео, що очікують обробки">
-                    <h3>Очікують обробки <span>{pendingJobs.length}</span></h3>
                     {renderJobs(pendingJobs)}
                   </section>
                 )}
@@ -164,10 +234,38 @@ export function VideoWorkspace({
                     {renderJobs(attentionJobs)}
                   </section>
                 )}
-                <div className="queue-footer-note queue-sequence-note">
-                  <Icon name="clock" size={20} />
-                  <span><strong>Послідовна обробка</strong><small>Одне відео за раз</small></span>
-                </div>
+                {queueActionReady && (
+                  <footer className="queue-footer">
+                    <div className="queue-footer-actions">
+                      {pendingCount > 0 && (
+                        <button className="button button-cancel-pending" type="button" onClick={optimizer.cancelPending}>
+                          <Icon name="queueRemove" size={17} />
+                          Скасувати очікування
+                        </button>
+                      )}
+                      <button
+                        className="button button-primary queue-run-button"
+                        type="button"
+                        disabled={!optimizer.desktop || !optimizer.snapshot?.runtime.ready}
+                        onClick={() => {
+                          if (optimizer.snapshot?.queuePaused) optimizer.startQueue();
+                          else if (optimizer.snapshot?.queueRunning) optimizer.stopQueue();
+                          else optimizer.startQueue();
+                        }}
+                      >
+                        <Icon
+                          name={optimizer.snapshot?.queueRunning && !optimizer.snapshot?.queuePaused ? "pause" : "play"}
+                          size={17}
+                        />
+                        {optimizer.snapshot?.queuePaused
+                          ? "Продовжити обробку"
+                          : optimizer.snapshot?.queueRunning
+                            ? "Зупинити після відео"
+                            : "Запустити обробку"}
+                      </button>
+                    </div>
+                  </footer>
+                )}
               </>
             )}
           </section>
@@ -176,7 +274,10 @@ export function VideoWorkspace({
         {activeTab === "completed" && (
           <section className="queue-panel">
             <div className="queue-heading">
-              <h2>Готові відео <span className="queue-count">{completedCount}</span></h2>
+              <h2>
+                Готові відео
+                {completedCount > 0 && <span className="queue-count">{completedCount}</span>}
+              </h2>
               {completedCount > 0 && (
                 <button className="button button-quiet" type="button" onClick={optimizer.clearCompleted}>
                   <Icon name="trash" size={16} />

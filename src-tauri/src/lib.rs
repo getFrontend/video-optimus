@@ -26,6 +26,7 @@ pub fn run() {
             commands::initialize,
             commands::refresh_runtime,
             commands::get_snapshot,
+            commands::get_video_thumbnail,
             commands::enqueue_files,
             commands::enqueue_folder,
             commands::start_queue,

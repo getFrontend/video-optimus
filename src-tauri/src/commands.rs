@@ -6,7 +6,12 @@ use crate::{
     queue,
     state::AppState,
 };
-use std::path::PathBuf;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use std::{
+    hash::{Hash, Hasher},
+    path::PathBuf,
+    time::UNIX_EPOCH,
+};
 use tauri::{AppHandle, State};
 
 #[tauri::command]
@@ -33,6 +38,70 @@ pub async fn get_snapshot(
     state: State<'_, AppState>,
 ) -> Result<AppSnapshot, String> {
     Ok(state.snapshot(&app).await)
+}
+
+#[tauri::command]
+pub async fn get_video_thumbnail(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Option<String>, String> {
+    let Some(job) = state
+        .jobs
+        .read()
+        .await
+        .iter()
+        .find(|job| job.id == id)
+        .cloned()
+    else {
+        return Ok(None);
+    };
+    let source_path = PathBuf::from(&job.path);
+    let Ok(metadata) = tokio::fs::metadata(&source_path).await else {
+        return Ok(None);
+    };
+    let modified = metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    job.path.hash(&mut hasher);
+    metadata.len().hash(&mut hasher);
+    modified.hash(&mut hasher);
+    job.metadata.duration_seconds.to_bits().hash(&mut hasher);
+
+    let cache_directory = state.data_directory.join("thumbnails");
+    let cache_path = cache_directory.join(format!("v1-{:016x}.jpg", hasher.finish()));
+    let _cache_guard = state.thumbnail_lock.lock().await;
+    let cached_bytes = tokio::fs::read(&cache_path)
+        .await
+        .ok()
+        .filter(|bytes| !bytes.is_empty());
+    let bytes = if let Some(bytes) = cached_bytes {
+        bytes
+    } else {
+        let tools = state.tools.read().await.clone();
+        let Ok(bytes) = tools
+            .thumbnail(&source_path, job.metadata.duration_seconds)
+            .await
+        else {
+            return Ok(None);
+        };
+
+        if tokio::fs::create_dir_all(&cache_directory).await.is_ok() {
+            let temporary_path = cache_path.with_extension("jpg.tmp");
+            if tokio::fs::write(&temporary_path, &bytes).await.is_ok() {
+                let _ = tokio::fs::rename(&temporary_path, &cache_path).await;
+            }
+        }
+        bytes
+    };
+
+    Ok(Some(format!(
+        "data:image/jpeg;base64,{}",
+        STANDARD.encode(bytes)
+    )))
 }
 
 #[tauri::command]

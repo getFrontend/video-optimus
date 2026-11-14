@@ -24,6 +24,7 @@ pub struct AppState {
     pub cancel_current: Arc<Mutex<Option<Arc<Notify>>>>,
     pub inflight_paths: Arc<Mutex<HashSet<String>>>,
     pub persistence_lock: Arc<Mutex<()>>,
+    pub thumbnail_lock: Arc<Mutex<()>>,
 }
 
 impl AppState {
@@ -61,6 +62,7 @@ impl AppState {
             cancel_current: Arc::new(Mutex::new(None)),
             inflight_paths: Arc::new(Mutex::new(HashSet::new())),
             persistence_lock: Arc::new(Mutex::new(())),
+            thumbnail_lock: Arc::new(Mutex::new(())),
         }
     }
 

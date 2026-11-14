@@ -2,14 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BrandMark } from "./components/BrandMark";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
-import { Icon } from "./components/Icon";
+import { Icon, type IconName } from "./components/Icon";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { SettingsScrollbar } from "./components/SettingsScrollbar";
 import { SystemPanel } from "./components/SystemPanel";
 import { VideoWorkspace } from "./components/VideoWorkspace";
 import { WindowControls } from "./components/WindowControls";
-import { useOptimizer } from "./hooks/useOptimizer";
+import { useOptimizer, type NoticeType } from "./hooks/useOptimizer";
 import { formatSize } from "./lib/format";
+
+const noticeIcons = {
+  info: "info",
+  success: "check",
+  warning: "warning",
+  error: "warning",
+} satisfies Record<NoticeType, IconName>;
 
 export default function App() {
   const optimizer = useOptimizer();
@@ -179,9 +186,13 @@ export default function App() {
       />
 
       {optimizer.notice && (
-        <div className="toast-message" role="status">
-          <span className="toast-icon"><Icon name="info" size={16} /></span>
-          <span>{optimizer.notice}</span>
+        <div
+          className={`toast-message is-${optimizer.notice.type}`}
+          role={optimizer.notice.type === "error" ? "alert" : "status"}
+          aria-atomic="true"
+        >
+          <span className="toast-icon"><Icon name={noticeIcons[optimizer.notice.type]} size={16} /></span>
+          <span className="toast-copy">{optimizer.notice.message}</span>
           <button type="button" aria-label="Закрити сповіщення" onClick={optimizer.dismissNotice}>
             <Icon name="close" size={16} />
           </button>

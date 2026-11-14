@@ -1,7 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import type { KeyboardEvent } from "react";
-import { Icon } from "./Icon";
-import { useOptimizer } from "../hooks/useOptimizer";
 
 export type WorkspaceTab = "add" | "processing" | "completed";
 const WORKSPACE_TABS: WorkspaceTab[] = ["add", "processing", "completed"];
@@ -10,13 +8,11 @@ export function WorkspaceTabs({
   activeTab,
   processingCount,
   completedCount,
-  optimizer,
   onSelect,
 }: {
   activeTab: WorkspaceTab;
   processingCount: number;
   completedCount: number;
-  optimizer: ReturnType<typeof useOptimizer>;
   onSelect: (tab: WorkspaceTab) => void;
 }) {
   const activeTabRef = useRef(activeTab);
@@ -68,12 +64,6 @@ export function WorkspaceTabs({
     };
   }, []);
 
-  const runOrPause = () => {
-    if (optimizer.snapshot?.queuePaused) optimizer.startQueue();
-    else if (optimizer.snapshot?.queueRunning) optimizer.stopQueue();
-    else optimizer.startQueue();
-  };
-
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, currentTab: WorkspaceTab) => {
     const currentIndex = WORKSPACE_TABS.indexOf(currentTab);
     const nextIndex = event.key === "ArrowRight"
@@ -92,12 +82,6 @@ export function WorkspaceTabs({
     onSelect(nextTab);
     tabButtonRefs.current[nextTab]?.focus();
   };
-
-  const queueActionReady = Boolean(
-    optimizer.snapshot?.jobs.some((job) => job.status === "pending") ||
-    optimizer.snapshot?.queuePaused ||
-    optimizer.snapshot?.queueRunning,
-  );
 
   return (
     <nav className="workspace-nav" aria-label="Розділи роботи з відео">
@@ -146,24 +130,6 @@ export function WorkspaceTabs({
           Готово <span className="workspace-tab-count">{completedCount}</span>
         </button>
       </div>
-      {activeTab === "processing" && queueActionReady && (
-        <button
-          className="button button-primary workspace-run-button"
-          type="button"
-          disabled={!optimizer.desktop || !optimizer.snapshot?.runtime.ready}
-          onClick={runOrPause}
-        >
-          <Icon
-            name={optimizer.snapshot?.queueRunning && !optimizer.snapshot?.queuePaused ? "pause" : "play"}
-            size={16}
-          />
-          {optimizer.snapshot?.queuePaused
-            ? "Продовжити обробку"
-            : optimizer.snapshot?.queueRunning
-              ? "Зупинити після відео"
-              : "Запустити обробку"}
-        </button>
-      )}
     </nav>
   );
 }

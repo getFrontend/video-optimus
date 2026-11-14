@@ -17,12 +17,15 @@ const DEFAULT_SETTINGS: AppSettings = {
   outputDirectory: null,
 };
 
+export type NoticeType = "info" | "success" | "warning" | "error";
+type Notice = { message: string; type: NoticeType };
+
 export function useOptimizer() {
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
   const [desktop, setDesktop] = useState(false);
   const [checkingRuntime, setCheckingRuntime] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<Notice | null>(null);
   const snapshotRef = useRef(snapshot);
   const runtimeRefreshInFlight = useRef(false);
   const settings = snapshot?.settings ?? DEFAULT_SETTINGS;
@@ -32,10 +35,10 @@ export function useOptimizer() {
   snapshotRef.current = snapshot;
   settingsRef.current = settings;
 
-  const showNotice = useCallback((message: string) => {
-    setNotice(message);
+  const showNotice = useCallback((message: string, type: NoticeType = "info") => {
+    setNotice({ message, type });
     window.clearTimeout(noticeTimer.current);
-    noticeTimer.current = window.setTimeout(() => setNotice(""), 4800);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 4800);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -52,14 +55,17 @@ export function useOptimizer() {
         options: { paths: uniquePaths, ...settingsRef.current },
       });
       setSnapshot(await invoke<AppSnapshot>("get_snapshot"));
-      if (result.added.length > 0) {
-        showNotice(`Додано файлів: ${result.added.length}`);
-      }
       if (result.rejected.length > 0) {
-        showNotice(result.rejected.slice(0, 2).join("\n"));
+        const message = [
+          result.added.length > 0 ? `Додано файлів: ${result.added.length}` : "",
+          ...result.rejected.slice(0, 2),
+        ].filter(Boolean).join("\n");
+        showNotice(message, result.added.length > 0 ? "warning" : "error");
+      } else if (result.added.length > 0) {
+        showNotice(`Додано файлів: ${result.added.length}`, "success");
       }
     } catch (error) {
-      showNotice(errorMessage(error));
+      showNotice(errorMessage(error), "error");
     } finally {
       uniquePaths.forEach((path) => addingPaths.current.delete(path));
     }
@@ -124,7 +130,7 @@ export function useOptimizer() {
             setSnapshot(next);
           })
           .catch((error) => {
-            if (!disposed) showNotice(errorMessage(error));
+            if (!disposed) showNotice(errorMessage(error), "error");
           })
           .finally(() => {
             runtimeRefreshInFlight.current = false;
@@ -141,7 +147,7 @@ export function useOptimizer() {
     void connect().catch((error) => {
       if (!disposed) {
         setCheckingRuntime(false);
-        showNotice(errorMessage(error));
+        showNotice(errorMessage(error), "error");
       }
     });
     return () => {
@@ -157,7 +163,7 @@ export function useOptimizer() {
       await invoke("update_settings", { settings: next });
       setSnapshot((current) => current ? { ...current, settings: next } : current);
     } catch (error) {
-      showNotice(errorMessage(error));
+      showNotice(errorMessage(error), "error");
     }
   }, [showNotice]);
 
@@ -183,11 +189,22 @@ export function useOptimizer() {
         outputDirectory: settings.outputDirectory,
       });
       setSnapshot(await invoke<AppSnapshot>("get_snapshot"));
-      showNotice(result.added.length
-        ? `Додано з теки: ${result.added.length}`
-        : result.rejected[0] ?? "У теці не знайдено відео підтримуваних форматів.");
+      if (result.added.length > 0 || result.rejected.length > 0) {
+        const message = [
+          result.added.length > 0 ? `Додано з теки: ${result.added.length}` : "",
+          ...result.rejected.slice(0, 2),
+        ].filter(Boolean).join("\n");
+        showNotice(
+          message,
+          result.rejected.length > 0
+            ? result.added.length > 0 ? "warning" : "error"
+            : "success",
+        );
+      } else {
+        showNotice("У теці не знайдено відео підтримуваних форматів.", "info");
+      }
     } catch (error) {
-      showNotice(errorMessage(error));
+      showNotice(errorMessage(error), "error");
     }
   }, [settings, showNotice]);
 
@@ -209,9 +226,9 @@ export function useOptimizer() {
     try {
       await invoke(name, args);
       await refresh();
-      if (success) showNotice(success);
+      if (success) showNotice(success, "success");
     } catch (error) {
-      showNotice(errorMessage(error));
+      showNotice(errorMessage(error), "error");
     }
   }, [refresh, showNotice]);
 
@@ -257,7 +274,7 @@ export function useOptimizer() {
 
   const dismissNotice = () => {
     window.clearTimeout(noticeTimer.current);
-    setNotice("");
+    setNotice(null);
   };
 
   return {
