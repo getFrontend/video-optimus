@@ -35,7 +35,7 @@ export function formatFrameRate(value: string): string {
 
 export function statusLabel(status: JobStatus): string {
   const labels: Record<JobStatus, string> = {
-    pending: "У черзі",
+    pending: "Очікує обробки",
     analyzing: "Аналіз",
     preparing: "Підготовка",
     encoding: "Стиснення",

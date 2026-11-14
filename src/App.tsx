@@ -1,19 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BrandMark } from "./components/BrandMark";
-import { DropZone } from "./components/DropZone";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
 import { Icon } from "./components/Icon";
-import { QueueItem } from "./components/QueueItem";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { SettingsScrollbar } from "./components/SettingsScrollbar";
 import { SystemPanel } from "./components/SystemPanel";
+import { VideoWorkspace } from "./components/VideoWorkspace";
 import { WindowControls } from "./components/WindowControls";
 import { useOptimizer } from "./hooks/useOptimizer";
-import type { JobStatus } from "./types";
 import { formatSize } from "./lib/format";
-
-const ACTIVE: JobStatus[] = ["analyzing", "preparing", "encoding", "validating"];
 
 export default function App() {
   const optimizer = useOptimizer();
@@ -31,23 +27,8 @@ export default function App() {
   }, [settingsOpen]);
   const jobs = optimizer.snapshot?.jobs ?? [];
   const checkingRuntime = optimizer.checkingRuntime && optimizer.desktop;
-  const isEmpty = Boolean(optimizer.snapshot && jobs.length === 0);
   const pendingCount = jobs.filter((job) => job.status === "pending").length;
   const completedCount = jobs.filter((job) => job.status === "completed").length;
-  const activeJob = jobs.find((job) => ACTIVE.includes(job.status));
-  const queueActionReady = Boolean(
-    pendingCount || optimizer.snapshot?.queuePaused || optimizer.snapshot?.queueRunning,
-  );
-  const pendingIndex = useMemo(() => {
-    let position = 0;
-    return new Map(jobs.filter((job) => job.status === "pending").map((job) => [job.id, position++]));
-  }, [jobs]);
-
-  const runOrPause = () => {
-    if (optimizer.snapshot?.queuePaused) optimizer.startQueue();
-    else if (optimizer.snapshot?.queueRunning) optimizer.stopQueue();
-    else optimizer.startQueue();
-  };
 
   return (
     <main
@@ -95,11 +76,11 @@ export default function App() {
         <section className="welcome-row">
           <div className="welcome-copy">
             <h1>Оптимізація відео</h1>
-            <p>Додайте файли, налаштуйте якість і запустіть чергу.</p>
+            <p>Додавайте відео по одному або цілою текою. Оригінали залишаються незмінними.</p>
           </div>
           <div className="welcome-stats">
             <div className="welcome-stat">
-              <span>У черзі</span>
+              <span>Очікують</span>
               <strong>{pendingCount}</strong>
             </div>
             <div className="welcome-stat">
@@ -123,86 +104,13 @@ export default function App() {
           </div>
         )}
 
-        <DropZone
-          available={optimizer.desktop && Boolean(optimizer.snapshot?.runtime.ready)}
-          dragging={optimizer.dragging}
-          empty={isEmpty}
-          primaryAction={!queueActionReady}
-          onFiles={optimizer.chooseFiles}
-          onFolder={optimizer.chooseFolder}
-        />
-
-        <div className={`workbench${isEmpty ? " is-empty" : ""}`}>
-          {jobs.length > 0 && (
-            <section className="queue-panel">
-              <div className="queue-heading">
-                <h2>Черга <span className="queue-count">{jobs.length}</span></h2>
-                <div className="queue-heading-actions">
-                  {pendingCount > 0 && (
-                    <button className="button button-quiet" type="button" onClick={optimizer.cancelPending}>
-                      <Icon name="close" size={16} />
-                      Скасувати очікування
-                    </button>
-                  )}
-                  {activeJob && (
-                    <button className="button button-quiet button-cancel" type="button" onClick={optimizer.cancelCurrent}>
-                      <Icon name="close" size={16} />
-                      Скасувати поточне
-                    </button>
-                  )}
-                  <button
-                    className="button button-quiet"
-                    type="button"
-                    onClick={optimizer.clearCompleted}
-                    disabled={completedCount === 0}
-                  >
-                    <Icon name="trash" size={16} />
-                    Очистити готові
-                  </button>
-                </div>
-              </div>
-
-              <div className="queue-list">
-                {jobs.map((job) => (
-                  <QueueItem
-                    key={job.id}
-                    job={job}
-                    index={pendingIndex.get(job.id) ?? -1}
-                    onReorder={optimizer.reorderJob}
-                    onRemove={optimizer.removeJob}
-                    onRetry={optimizer.retryJob}
-                    onSkip={optimizer.skipJob}
-                    onOpen={optimizer.openPath}
-                  />
-                ))}
-              </div>
-
-              <div className="queue-footer">
-                <div className="queue-footer-note">
-                  <Icon name="clock" size={20} />
-                  <span><strong>Послідовно</strong><small>Одне завдання за раз</small></span>
-                </div>
-                <div className="queue-controls">
-                  <button
-                    className={`button ${queueActionReady ? "button-primary" : "button-secondary"} start-button`}
-                    type="button"
-                    disabled={!optimizer.desktop || !optimizer.snapshot?.runtime.ready || (!pendingCount && !optimizer.snapshot?.queuePaused && !optimizer.snapshot?.queueRunning)}
-                    onClick={runOrPause}
-                  >
-                    <Icon
-                      name={optimizer.snapshot?.queuePaused ? "play" : optimizer.snapshot?.queueRunning ? "pause" : "play"}
-                      size={16}
-                    />
-                    {optimizer.snapshot?.queuePaused
-                      ? "Продовжити чергу"
-                      : optimizer.snapshot?.queueRunning
-                        ? "Після поточного"
-                        : "Запустити чергу"}
-                  </button>
-                </div>
-              </div>
-            </section>
-          )}
+        <div className="workbench">
+          <VideoWorkspace
+            optimizer={optimizer}
+            jobs={jobs}
+            pendingCount={pendingCount}
+            completedCount={completedCount}
+          />
 
           <aside
             className={`settings-drawer${settingsOpen ? " is-open" : ""}`}

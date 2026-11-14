@@ -14,6 +14,7 @@
   .topbar { min-height: 2rem; padding-inline: var(--gutter); }
   .topbar-right { gap: var(--space-sm); }
   .local-pill { display: none; }
+  .workspace-nav { top: 2rem; }
   .drop-zone { grid-template-columns: 2rem minmax(0, 1fr); gap: var(--space-sm) var(--space-md); }
   .drop-actions { grid-column: 2; justify-content: flex-start; }
 }
@@ -22,6 +23,13 @@
   .welcome-copy h1 { font-size: clamp(2rem, 9vw, 2.5rem); }
   .welcome-stats { justify-content: space-between; gap: var(--space-sm); width: 100%; }
   .welcome-stat span { font-size: var(--text-xs); }
+  .workspace-nav { align-items: stretch; flex-direction: column; gap: 0; padding-block: var(--space-xs); }
+  .workspace-tabs { width: 100%; }
+  .workspace-tab { flex: 1 1 0; min-height: 3rem; gap: var(--space-2xs); padding-inline: var(--space-xs); font-size: var(--text-xs); }
+  .workspace-run-button { width: 100%; }
+  .workspace-tab-content { scroll-margin-top: 3rem; }
+  .next-step-panel { align-items: stretch; flex-direction: column; gap: var(--space-sm); padding: var(--space-md); }
+  .next-step-panel .button { width: 100%; }
   .drop-zone { padding: var(--space-md); }
   .drop-zone.is-empty { min-height: 18rem; padding: var(--space-lg); }
   .drop-actions { grid-column: 1 / -1; width: 100%; }
@@ -32,10 +40,8 @@
   .queue-item { grid-template-columns: 1.5rem minmax(0, 1fr); gap: var(--space-sm); padding-block: var(--space-md); }
   .queue-grip { display: none; }
   .queue-actions { grid-column: 2; justify-self: end; }
-  .queue-footer { align-items: stretch; flex-direction: column; }
-  .queue-controls,
-  .start-button { width: 100%; }
   .settings-drawer { top: 0; z-index: var(--z-modal); width: min(var(--settings-drawer-width), 100vw); }
+  .system-details-overlay { top: 0; }
   .settings-drawer-collapse { left: var(--space-sm); }
   .system-panel { padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
   .toast-message { right: var(--space-sm); bottom: var(--space-sm); max-width: calc(100% - var(--space-lg)); }
@@ -43,6 +49,9 @@
 @media (max-width: 22.5rem) {
   .topbar { align-items: flex-start; flex-wrap: wrap; gap: var(--space-xs); padding-block: var(--space-sm); }
   .topbar-right { width: 100%; }
+  .workspace-nav { top: 4.75rem; }
+  .workspace-tab { padding-inline: var(--space-2xs); font-size: 0.75rem; }
+  .workspace-tab-content { scroll-margin-top: 6rem; }
   .drop-actions { align-items: stretch; flex-direction: column; }
   .drop-actions .button { width: 100%; }
   .queue-progress { align-items: flex-start; }

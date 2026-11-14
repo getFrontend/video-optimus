@@ -6,14 +6,12 @@ export function DropZone({
   available,
   dragging,
   empty,
-  primaryAction,
   onFiles,
   onFolder,
 }: {
   available: boolean;
   dragging: boolean;
   empty: boolean;
-  primaryAction: boolean;
   onFiles: () => void;
   onFolder: () => void;
 }) {
@@ -25,13 +23,13 @@ export function DropZone({
       <span className="drop-symbol" aria-hidden="true"><Icon name="film" size={24} /></span>
       <div className="drop-copy">
         <h2>{dragging ? "Відпустіть, щоб додати" : "Перетягніть відео сюди"}</h2>
-        <p>Файли залишаються на вашому пристрої. Оригінали не змінюються.</p>
+        <p>Додавайте одне відео або кілька файлів одразу. Можна вибрати цілу теку. Оригінали не змінюються.</p>
         <ul className="drop-formats" aria-label="Підтримувані формати відео">
           {FORMATS.map((format) => <li key={format}>{format}</li>)}
         </ul>
       </div>
       <div className="drop-actions">
-        <button className={`button ${primaryAction ? "button-primary" : "button-secondary"}`} type="button" disabled={!available} onClick={onFiles}>
+        <button className="button button-primary" type="button" disabled={!available} onClick={onFiles}>
           <Icon name="add" size={empty ? 32 : 16} />
           Додати файли
         </button>
