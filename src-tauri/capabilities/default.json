@@ -3,5 +3,12 @@
   "identifier": "default",
   "description": "Default permissions for the local Video Optimus window.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "dialog:allow-open",
+    "snap-layout:default"
+  ]
 }

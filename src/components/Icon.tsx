@@ -67,6 +67,8 @@ const shapes = {
       <circle cx="17" cy="12" r="1.4" fill="currentColor" stroke="none" />
     </>
   ),
+  maximize: <rect x="5.5" y="5.5" width="13" height="13" />,
+  minimize: <path d="M5 12h14" />,
   pause: (
     <>
       <circle cx="12" cy="12" r="8.8" />
@@ -83,6 +85,12 @@ const shapes = {
     <>
       <path d="M16.8 9.2A6 6 0 1 0 18 12" />
       <path d="M18 12V8.8m0 0h-3.2" />
+    </>
+  ),
+  restore: (
+    <>
+      <path d="M8 8V5.5h10.5V16H16" />
+      <path d="M5.5 8h10.5v10.5H5.5z" />
     </>
   ),
   shield: (

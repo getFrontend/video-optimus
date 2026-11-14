@@ -7,6 +7,7 @@ mod models;
 mod queue;
 mod state;
 mod validation;
+mod window_controls;
 mod worker;
 
 use tauri::Manager;
@@ -14,6 +15,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(window_controls::snap_layout_plugin())
         .setup(|app| {
             let data_directory = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_directory)?;

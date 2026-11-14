@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { BrandMark } from "./components/BrandMark";
 import { DropZone } from "./components/DropZone";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
@@ -7,6 +8,7 @@ import { QueueItem } from "./components/QueueItem";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { SettingsScrollbar } from "./components/SettingsScrollbar";
 import { SystemPanel } from "./components/SystemPanel";
+import { WindowControls } from "./components/WindowControls";
 import { useOptimizer } from "./hooks/useOptimizer";
 import type { JobStatus } from "./types";
 import { formatSize } from "./lib/format";
@@ -48,7 +50,14 @@ export default function App() {
 
   return (
     <main className={`app-shell${settingsOpen ? " settings-open" : ""}`}>
-      <header className="topbar">
+      <header
+        className={`topbar${optimizer.desktop ? " has-window-controls" : ""}`}
+        data-tauri-drag-region
+        onDoubleClick={(event) => {
+          if (!optimizer.desktop || (event.target as HTMLElement).closest(".window-controls")) return;
+          void getCurrentWindow().toggleMaximize();
+        }}
+      >
         <div className="brand">
           <BrandMark />
           <span className="brand-name">video<span>optimus</span></span>
@@ -62,6 +71,7 @@ export default function App() {
           </span>
           <span className="local-pill">Локальна обробка</span>
         </div>
+        {optimizer.desktop && <WindowControls />}
       </header>
 
       <div className="page-content">
