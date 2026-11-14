@@ -322,6 +322,7 @@ export function useOptimizer() {
     dragging,
     notice,
     checkingRuntime,
+    showNotice,
     dismissNotice,
     setMode,
     setQuality,

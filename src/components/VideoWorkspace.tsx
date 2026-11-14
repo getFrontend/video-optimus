@@ -31,6 +31,7 @@ export function VideoWorkspace({
   const queuePanelRef = useRef<HTMLElement>(null);
   const positionsBeforeReorder = useRef<Map<string, DOMRect> | null>(null);
   const previousJobIds = useRef<Set<string> | null>(null);
+  const previousAllCompleted = useRef<boolean | null>(null);
   const hasSnapshot = optimizer.snapshot !== null;
   const preview = usePreviewComparison(
     jobs,
@@ -80,6 +81,19 @@ export function VideoWorkspace({
       selectTab("processing");
     }
   }, [hasSnapshot, jobs, selectTab]);
+
+  useEffect(() => {
+    if (!hasSnapshot) return;
+
+    const allCompleted = jobs.length > 0 && jobs.every((job) => job.status === "completed");
+    const wasAllCompleted = previousAllCompleted.current;
+    previousAllCompleted.current = allCompleted;
+
+    if (wasAllCompleted === false && allCompleted) {
+      selectTab("completed");
+      optimizer.showNotice("Усі відео успішно оброблено.", "success");
+    }
+  }, [hasSnapshot, jobs, optimizer.showNotice, selectTab]);
 
   const reorderJob = useCallback((id: string, targetIndex: number) => {
     const sourceIndex = pendingIndex.get(id);
@@ -231,12 +245,8 @@ export function VideoWorkspace({
             {processingJobs.length === 0 ? (
               <div className="empty-queue">
                 <Icon name={completedCount > 0 ? "check" : "film"} size={28} />
-                <strong>{completedCount > 0 ? "Усі відео оброблено" : "Поки немає відео для обробки"}</strong>
-                <p>
-                  {completedCount > 0
-                    ? "Готові результати збережені в розділі готових відео."
-                    : "Додайте окреме відео, кілька файлів або цілу теку."}
-                </p>
+                <strong>Немає відео в обробці</strong>
+                <p>Додайте нові відео або перегляньте готові результати.</p>
                 <button
                   className="button button-secondary"
                   type="button"
