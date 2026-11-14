@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2224 1664" width="2224" height="1664">
+  <title>Video Optimus icon contact sheet</title>
+  <desc>Twelve refined monoline vector icons arranged in a four-column by three-row grid.</desc>
+  <g id="clock" transform="translate(134 133) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.8" />
+    <path d="M12 6.8v5.5l3.8 3.2" />
+  </g>
+  <g id="cpu" transform="translate(690 133) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6" y="6" width="12" height="12" rx="2.2" />
+    <path d="M9 2.8v3.2M12 2.8v3.2M15 2.8v3.2M9 18v3.2M12 18v3.2M15 18v3.2M2.8 9H6M2.8 12H6M2.8 15H6M18 9h3.2M18 12h3.2M18 15h3.2" />
+  </g>
+  <g id="film" transform="translate(1246 133) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4" y="3" width="16" height="18" rx="1.8" />
+    <path d="M8 3v18M16 3v18M4 8.9h16M4 15.1h16" />
+  </g>
+  <g id="folder" transform="translate(1802 133) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.2 7.2V5.8A2.8 2.8 0 0 1 6 3h4l2.1 2.2H18a2.8 2.8 0 0 1 2.8 2.8v.3" />
+    <path d="M3.2 7.2h16.3a2.5 2.5 0 0 1 2.4 3.2l-1.7 6.8a2.5 2.5 0 0 1-2.4 1.9H5.1a2.5 2.5 0 0 1-2.4-2.6L3.2 7.2Z" />
+  </g>
+  <g id="hardDrive" transform="translate(134 688) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.6 5.2A2.8 2.8 0 0 1 7.3 3h9.4a2.8 2.8 0 0 1 2.7 2.2l2.4 8.3H2.2l2.4-8.3Z" />
+    <rect x="2.2" y="13.5" width="19.6" height="5.5" rx="1.8" />
+    <circle cx="18.3" cy="16.25" r=".55" />
+  </g>
+  <g id="info" transform="translate(690 688) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.8" />
+    <path d="M12 10.8v5.1" />
+    <circle cx="12" cy="7.6" r=".55" fill="#111827" stroke="none" />
+  </g>
+  <g id="pause" transform="translate(1246 688) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.8" />
+    <path d="M9.4 8.3v7.4M14.6 8.3v7.4" />
+  </g>
+  <g id="play" transform="translate(1802 688) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.8" />
+    <path d="m10 8.1 6.2 3.9-6.2 3.9V8.1Z" />
+  </g>
+  <g id="sparkle" transform="translate(134 1243) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.2c.8 4.9 3.1 7.2 8 8-4.9.8-7.2 3.1-8 8-.8-4.9-3.1-7.2-8-8 4.9-.8 7.2-3.1 8-8Z" />
+  </g>
+  <g id="warning" transform="translate(690 1243) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m10.3 4.3-7.5 13a2.1 2.1 0 0 0 1.8 3.1h15a2.1 2.1 0 0 0 1.8-3.1l-7.5-13a2.1 2.1 0 0 0-3.6 0Z" />
+    <path d="M12 8.6v4.8" />
+    <circle cx="12" cy="16.7" r=".55" fill="#111827" stroke="none" />
+  </g>
+  <g id="compress" transform="translate(1246 1243) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m9 9-4.2-4.2M9 9H5.6M9 9V5.6M15 9l4.2-4.2M15 9h3.4M15 9V5.6M9 15l-4.2 4.2M9 15H5.6M9 15v3.4M15 15l4.2 4.2M15 15h3.4M15 15v3.4" />
+  </g>
+  <g id="shield" transform="translate(1802 1243) scale(12)" fill="none" stroke="#111827" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2.8c2.2 1.8 4.7 2.9 7.5 3.3v5.1c0 4.5-2.8 8.2-7.5 10-4.7-1.8-7.5-5.5-7.5-10V6.1c2.8-.4 5.3-1.5 7.5-3.3Z" />
+  </g>
+</svg>

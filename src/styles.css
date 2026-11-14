@@ -1,0 +1,7 @@
+/* Hallmark · shape: app screen · genre: atmospheric · theme: brand · redesign: full
+ * paper: oklch(97.5% 0.008 285) · accent: oklch(46% 0.17 287) · display: Onest · body: Onest
+ * nav: edge bar with runtime status · signature: ordered video queue · states: empty, pending, active, complete, error
+ * axes: pale lavender / large Cyrillic / restrained violet · posture: restrained · contrast: pass · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H5 E4 S4 R5 V4 · weakest: P, let the real queue rather than decorative chrome carry the screen */
+@import "./hallmark.css";
+@import "./ffmpeg-dialog.css";

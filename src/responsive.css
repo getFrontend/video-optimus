@@ -1,0 +1,61 @@
+/* Hallmark · responsive app-screen layer · full build stamp is in hallmark.css  */
+@media (max-width: 60rem) {
+  .page-content { padding-top: var(--space-lg); }
+  .welcome-row { grid-template-columns: minmax(0, 1fr); align-items: start; gap: var(--space-lg); }
+  .workbench { grid-template-columns: minmax(0, 1fr); }
+  .drop-zone { grid-template-columns: 2rem minmax(0, 1fr); gap: var(--space-sm) var(--space-md); }
+  .drop-actions { grid-column: 2; justify-content: flex-start; }
+  .system-panel { padding-top: 0; border-top: 0; }
+}
+@media (max-width: 72rem) {
+  .settings-open .page-content { padding-right: var(--gutter); }
+}
+@media (max-width: 48rem) {
+  .topbar { min-height: 2rem; padding-inline: var(--gutter); }
+  .topbar-right { gap: var(--space-sm); }
+  .local-pill { display: none; }
+  .drop-zone { grid-template-columns: 2rem minmax(0, 1fr); gap: var(--space-sm) var(--space-md); }
+  .drop-actions { grid-column: 2; justify-content: flex-start; }
+}
+@media (max-width: 40rem) {
+  .page-content { padding-top: var(--space-lg); }
+  .welcome-copy h1 { font-size: clamp(2rem, 9vw, 2.5rem); }
+  .welcome-stats { justify-content: space-between; gap: var(--space-sm); width: 100%; }
+  .welcome-stat span { font-size: var(--text-xs); }
+  .drop-zone { padding: var(--space-md); }
+  .drop-zone.is-empty { min-height: 18rem; padding: var(--space-lg); }
+  .drop-actions { grid-column: 1 / -1; width: 100%; }
+  .drop-actions .button { flex: 1 1 auto; padding-inline: var(--space-md); }
+  .drop-zone.is-empty .drop-actions .button { font-size: var(--text-lg); }
+  .queue-heading { align-items: flex-start; flex-direction: column; }
+  .queue-heading-actions { justify-content: flex-start; }
+  .queue-item { grid-template-columns: 1.5rem minmax(0, 1fr); gap: var(--space-sm); padding-block: var(--space-md); }
+  .queue-grip { display: none; }
+  .queue-actions { grid-column: 2; justify-self: end; }
+  .queue-footer { align-items: stretch; flex-direction: column; }
+  .queue-controls,
+  .start-button { width: 100%; }
+  .settings-drawer { top: 0; z-index: var(--z-modal); width: min(var(--settings-drawer-width), 100vw); }
+  .settings-drawer-collapse { left: var(--space-sm); }
+  .system-panel { padding-top: var(--space-md); border-top: var(--rule-hair) solid var(--color-rule); }
+  .toast-message { right: var(--space-sm); bottom: var(--space-sm); max-width: calc(100% - var(--space-lg)); }
+}
+@media (max-width: 22.5rem) {
+  .topbar { align-items: flex-start; flex-wrap: wrap; gap: var(--space-xs); padding-block: var(--space-sm); }
+  .topbar-right { width: 100%; }
+  .drop-actions { align-items: stretch; flex-direction: column; }
+  .drop-actions .button { width: 100%; }
+  .queue-progress { align-items: flex-start; }
+}
+@media (pointer: coarse) {
+  .button { min-height: 2.75rem; }
+  .icon-button,
+  .toast-message button { width: 2.75rem; height: 2.75rem; }
+  .settings-drawer-collapse { left: -1.375rem; width: 2.75rem; height: 2.75rem; }
+}
+@media (pointer: coarse) and (max-width: 40rem) {
+  .settings-drawer-collapse { left: var(--space-sm); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-message { animation: none; }
+}
