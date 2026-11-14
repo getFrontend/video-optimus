@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import UseAnimations from "react-useanimations";
+import radioButton from "react-useanimations/lib/radioButton";
+import star from "react-useanimations/lib/star";
 import { Icon } from "./Icon";
-import type { IconName } from "./Icon";
 
 type SettingsSelectBadge = {
-  icon: IconName;
   label: string;
 };
 
@@ -184,7 +185,12 @@ export function SettingsSelect<Value extends string>({
         <span className="settings-select-copy" id={valueId}>
           <span className="settings-select-title">
             <strong>{selectedOption.title}</strong>
-            {selectedOption.badge && <RecommendationBadge badge={selectedOption.badge} />}
+            {selectedOption.badge && (
+              <RecommendationBadge
+                badge={selectedOption.badge}
+                active={selectedOption.id === value}
+              />
+            )}
           </span>
           <small>{selectedOption.hint}</small>
         </span>
@@ -221,11 +227,21 @@ export function SettingsSelect<Value extends string>({
                   closeMenu(true);
                 }}
               />
-              <span className="radio-mark" aria-hidden="true" />
+              <UseAnimations
+                animation={radioButton}
+                interaction="click-toggle"
+                active={value === option.id}
+                size={27}
+              />
               <span className="settings-select-option-text">
                 <span className="settings-select-title">
                   <strong>{option.title}</strong>
-                  {option.badge && <RecommendationBadge badge={option.badge} />}
+                  {option.badge && (
+                    <RecommendationBadge
+                      badge={option.badge}
+                      active={option.id === value}
+                    />
+                  )}
                 </span>
                 <small>{option.hint}</small>
               </span>
@@ -237,7 +253,13 @@ export function SettingsSelect<Value extends string>({
   );
 }
 
-function RecommendationBadge({ badge }: { badge: SettingsSelectBadge }) {
+function RecommendationBadge({
+  badge,
+  active,
+}: {
+  badge: SettingsSelectBadge;
+  active: boolean;
+}) {
   return (
     <span
       className="settings-select-badge"
@@ -245,7 +267,13 @@ function RecommendationBadge({ badge }: { badge: SettingsSelectBadge }) {
       aria-label={badge.label}
       title={badge.label}
     >
-      <Icon name={badge.icon} size={16} />
+      <UseAnimations
+        animation={star}
+        interaction="click-toggle"
+        active={active}
+        size={24}
+        aria-hidden="true"
+      />
     </span>
   );
 }

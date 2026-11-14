@@ -261,13 +261,15 @@ export function useOptimizer() {
     name: string,
     args?: Record<string, unknown>,
     success?: string,
-  ) => {
+  ): Promise<boolean> => {
     try {
       await invoke(name, args);
       await refresh();
       if (success) showNotice(success, "success");
+      return true;
     } catch (error) {
       showNotice(errorMessage(error), "error");
+      return false;
     }
   }, [refresh, showNotice]);
 
@@ -287,18 +289,6 @@ export function useOptimizer() {
     void command("retry_job", { id }, "Завдання додано для повторної обробки.");
   }, [command]);
 
-  const retryJobs = useCallback((ids: string[]) => {
-    void command("retry_jobs", { ids }, "Вибрані завдання додано для повторної обробки.");
-  }, [command]);
-
-  const applyJobSettings = useCallback((ids: string[]) => {
-    void command(
-      "apply_job_settings",
-      { ids, settings },
-      "Параметри застосовано до вибраних завдань.",
-    );
-  }, [command, settings]);
-
   const createPreview = useCallback((id: string) => {
     return invoke<PreviewResult>("create_video_preview", { id });
   }, []);
@@ -313,6 +303,14 @@ export function useOptimizer() {
 
   const startQueue = useCallback(() => {
     void command("start_queue");
+  }, [command]);
+
+  const startSelectedJobs = useCallback((ids: string[]) => {
+    return command(
+      "start_selected_queue",
+      { ids },
+      "Вибрані відео додано для обробки.",
+    );
   }, [command]);
 
   const stopQueue = useCallback(() => {
@@ -354,6 +352,7 @@ export function useOptimizer() {
     chooseOutput,
     addPaths,
     startQueue,
+    startSelectedJobs,
     stopQueue,
     cancelCurrent,
     cancelPending,
@@ -361,8 +360,6 @@ export function useOptimizer() {
     reorderJob,
     removeJob,
     retryJob,
-    retryJobs,
-    applyJobSettings,
     createPreview,
     removePreview,
     skipJob,

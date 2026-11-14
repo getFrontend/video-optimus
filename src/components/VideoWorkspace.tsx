@@ -44,7 +44,12 @@ export function VideoWorkspace({
   const attentionJobs = processingJobs.filter(
     (job) => job.status !== "pending" && !ACTIVE.includes(job.status),
   );
-  const bulk = useBulkQueueSelection(jobs, optimizer.applyJobSettings, optimizer.retryJobs);
+  const bulk = useBulkQueueSelection(jobs, optimizer.startSelectedJobs);
+  const selectedPendingCount = bulk.selectedJobs.filter((job) => job.status === "pending").length;
+  const selectedRetryableCount = bulk.selectedJobs.filter(
+    (job) => ["failed", "cancelled", "interrupted"].includes(job.status),
+  ).length;
+  const queueRunning = optimizer.snapshot?.queueRunning ?? false;
   const pendingIndex = useMemo(() => {
     let position = 0;
     return new Map(jobs.filter((job) => job.status === "pending").map((job) => [job.id, position++]));
@@ -53,7 +58,8 @@ export function VideoWorkspace({
   const queueActionReady = Boolean(
     pendingCount > 0 ||
     optimizer.snapshot?.queuePaused ||
-    optimizer.snapshot?.queueRunning,
+    optimizer.snapshot?.queueRunning ||
+    bulk.selectedJobs.length > 0,
   );
 
   const selectTab = useCallback((tab: WorkspaceTab) => {
@@ -156,7 +162,10 @@ export function VideoWorkspace({
           onDragTarget={updateDropTarget}
           onRemove={optimizer.removeJob}
           onRetry={optimizer.retryJob}
-          selectable={SELECTABLE_STATUSES.includes(job.status)}
+          selectable={
+            SELECTABLE_STATUSES.includes(job.status) &&
+            !queueRunning
+          }
           selected={bulk.selectedIds.has(job.id)}
           onSelect={bulk.selectJob}
           onPreview={preview.open}
@@ -174,6 +183,12 @@ export function VideoWorkspace({
         processingCount={processingJobs.length}
         completedCount={completedCount}
         onSelect={selectTab}
+        actions={activeTab === "processing" && bulk.selectedJobs.length > 0 ? (
+          <QueueBulkToolbar
+            selectedCount={bulk.selectedJobs.length}
+            onClear={bulk.clear}
+          />
+        ) : null}
       />
 
       <div
@@ -212,15 +227,6 @@ export function VideoWorkspace({
                 )}
               </div>
             </div>
-
-            <QueueBulkToolbar
-              selectedCount={bulk.selectedJobs.length}
-              pendingCount={bulk.selectedJobs.filter((job) => job.status === "pending").length}
-              retryableCount={bulk.selectedJobs.filter((job) => ["failed", "cancelled", "interrupted"].includes(job.status)).length}
-              onApplySettings={bulk.applyToPending}
-              onRetry={bulk.retrySelected}
-              onClear={bulk.clear}
-            />
 
             {processingJobs.length === 0 ? (
               <div className="empty-queue">
@@ -274,6 +280,7 @@ export function VideoWorkspace({
                         onClick={() => {
                           if (optimizer.snapshot?.queuePaused) optimizer.startQueue();
                           else if (optimizer.snapshot?.queueRunning) optimizer.stopQueue();
+                          else if (bulk.selectedJobs.length > 0) void bulk.startSelected();
                           else optimizer.startQueue();
                         }}
                       >
@@ -285,7 +292,13 @@ export function VideoWorkspace({
                           ? "Продовжити обробку"
                           : optimizer.snapshot?.queueRunning
                             ? "Зупинити після відео"
-                            : "Запустити обробку"}
+                            : selectedPendingCount > 0
+                              ? "Обробити вибрані"
+                              : selectedRetryableCount > 0
+                                ? selectedRetryableCount === 1
+                                  ? "Повторити невдалий"
+                                  : "Повторити невдалі"
+                                : "Запустити обробку"}
                       </button>
                     </div>
                   </footer>

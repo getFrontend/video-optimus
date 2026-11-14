@@ -7,12 +7,10 @@ export const SELECTABLE_STATUSES: JobStatus[] = [
   "cancelled",
   "interrupted",
 ];
-const RETRYABLE_STATUSES: JobStatus[] = ["failed", "cancelled", "interrupted"];
 
 export function useBulkQueueSelection(
   jobs: VideoJob[],
-  applySettings: (ids: string[]) => void,
-  retryJobs: (ids: string[]) => void,
+  startSelectedJobs: (ids: string[]) => Promise<boolean>,
 ) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const selectedJobs = jobs.filter(
@@ -29,23 +27,17 @@ export function useBulkQueueSelection(
   }, []);
 
   const clear = useCallback(() => setSelectedIds(new Set()), []);
-  const applyToPending = useCallback(() => {
-    const ids = selectedJobs
-      .filter((job) => job.status === "pending")
-      .map((job) => job.id);
+  const startSelected = useCallback(async () => {
+    const ids = selectedJobs.map((job) => job.id);
     if (ids.length === 0) return;
-    applySettings(ids);
-    clear();
-  }, [applySettings, clear, selectedJobs]);
+    if (await startSelectedJobs(ids)) clear();
+  }, [clear, selectedJobs, startSelectedJobs]);
 
-  const retrySelected = useCallback(() => {
-    const ids = selectedJobs
-      .filter((job) => RETRYABLE_STATUSES.includes(job.status))
-      .map((job) => job.id);
-    if (ids.length === 0) return;
-    retryJobs(ids);
-    clear();
-  }, [clear, retryJobs, selectedJobs]);
-
-  return { selectedIds, selectedJobs, selectJob, clear, applyToPending, retrySelected };
+  return {
+    selectedIds,
+    selectedJobs,
+    selectJob,
+    clear,
+    startSelected,
+  };
 }

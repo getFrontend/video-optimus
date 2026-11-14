@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import UseAnimations from "react-useanimations";
-import chevronLeft from "react-useanimations/lib/chevronLeft";
+import sidebar from "react-useanimations/lib/sidebar";
 import { BrandMark } from "./components/BrandMark";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
 import { Icon, type IconName } from "./components/Icon";
@@ -129,17 +129,28 @@ export default function App() {
               aria-hidden={!settingsOpen}
               inert={!settingsOpen}
             >
-              <button
-                ref={settingsCloseRef}
-                className="settings-drawer-collapse"
-                type="button"
-                aria-label="Згорнути бічну панель параметрів"
-                aria-controls="settings-drawer"
-                aria-expanded={true}
-                onClick={() => setSettingsOpen(false)}
-              >
-                <Icon name="close" size={18} />
-              </button>
+              <UseAnimations
+                animation={sidebar}
+                interaction="hover-replay"
+                size={27}
+                render={(eventProps, animationProps) => (
+                  <button
+                    {...eventProps}
+                    ref={settingsCloseRef}
+                    className="settings-drawer-collapse"
+                    type="button"
+                    aria-label="Згорнути бічну панель параметрів"
+                    aria-controls="settings-drawer"
+                    aria-expanded={true}
+                    onClick={(event) => {
+                      eventProps.onClick(event);
+                      setSettingsOpen(false);
+                    }}
+                  >
+                    <span {...animationProps} />
+                  </button>
+                )}
+              />
               <div
                 className="settings-drawer-scroll-area"
                 id="settings-scroll-area"
@@ -172,18 +183,29 @@ export default function App() {
             </aside>
           </div>
           {!settingsOpen && (
-            <button
-              ref={settingsToggleRef}
-              className="settings-reopen"
-              type="button"
-              aria-label="Відкрити параметри стиснення"
-              aria-controls="settings-drawer"
-              aria-expanded={false}
-              title="Параметри стиснення"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <UseAnimations animation={chevronLeft} interaction="hover-replay" size={18} />
-            </button>
+            <UseAnimations
+              animation={sidebar}
+              interaction="hover-replay"
+              size={27}
+              render={(eventProps, animationProps) => (
+                <button
+                  {...eventProps}
+                  ref={settingsToggleRef}
+                  className="settings-reopen"
+                  type="button"
+                  aria-label="Відкрити параметри стиснення"
+                  aria-controls="settings-drawer"
+                  aria-expanded={false}
+                  title="Параметри стиснення"
+                  onClick={(event) => {
+                    eventProps.onClick(event);
+                    setSettingsOpen(true);
+                  }}
+                >
+                  <span {...animationProps} />
+                </button>
+              )}
+            />
           )}
         </div>
       </div>

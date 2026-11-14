@@ -5,12 +5,12 @@ use crate::{
     state::AppState,
     validation::{output_path, validate_output},
 };
-use std::{sync::Arc, time::Instant};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 use tauri::AppHandle;
 use tokio::sync::Notify;
 use uuid::Uuid;
 
-pub async fn run_queue(app: AppHandle, state: AppState) {
+pub async fn run_queue(app: AppHandle, state: AppState, selected_job_ids: Option<HashSet<String>>) {
     loop {
         if state
             .stop_requested
@@ -23,7 +23,7 @@ pub async fn run_queue(app: AppHandle, state: AppState) {
             .read()
             .await
             .iter()
-            .find(|job| job.status == JobStatus::Pending)
+            .find(|job| should_process_job(&job.status, &job.id, selected_job_ids.as_ref()))
             .cloned();
         let Some(job) = next else { break };
         let started = Instant::now();
@@ -219,6 +219,14 @@ pub async fn run_queue(app: AppHandle, state: AppState) {
     }
 }
 
+fn should_process_job(
+    status: &JobStatus,
+    id: &str,
+    selected_job_ids: Option<&HashSet<String>>,
+) -> bool {
+    *status == JobStatus::Pending && selected_job_ids.is_none_or(|selected| selected.contains(id))
+}
+
 fn target_size_warning(target_size: Option<u64>, actual_size: u64) -> Option<String> {
     let target_size = target_size.filter(|size| *size > 0)?;
     let deviation = actual_size.abs_diff(target_size) as f64 / target_size as f64;
@@ -271,7 +279,31 @@ async fn finish_job(
 
 #[cfg(test)]
 mod tests {
-    use super::target_size_warning;
+    use super::{should_process_job, target_size_warning};
+    use crate::models::JobStatus;
+    use std::collections::HashSet;
+
+    #[test]
+    fn selected_queue_run_ignores_unselected_pending_jobs() {
+        let selected = HashSet::from(["selected".to_string()]);
+
+        assert!(should_process_job(
+            &JobStatus::Pending,
+            "selected",
+            Some(&selected)
+        ));
+        assert!(!should_process_job(
+            &JobStatus::Pending,
+            "other",
+            Some(&selected)
+        ));
+        assert!(!should_process_job(
+            &JobStatus::Failed,
+            "selected",
+            Some(&selected)
+        ));
+        assert!(should_process_job(&JobStatus::Pending, "other", None));
+    }
 
     #[test]
     fn target_size_warning_respects_five_percent_tolerance() {

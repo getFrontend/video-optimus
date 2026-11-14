@@ -6,6 +6,7 @@ use crate::{
     state::AppState,
 };
 use std::{
+    collections::HashSet,
     path::{Path, PathBuf},
     sync::atomic::Ordering,
     time::{SystemTime, UNIX_EPOCH},
@@ -208,7 +209,88 @@ pub async fn start_queue(app: AppHandle, state: AppState) -> Result<(), String> 
     let worker_app = app.clone();
     let worker_state = state.clone();
     tauri::async_runtime::spawn(async move {
-        crate::worker::run_queue(worker_app.clone(), worker_state.clone()).await;
+        crate::worker::run_queue(worker_app.clone(), worker_state.clone(), None).await;
+        worker_state.worker_active.store(false, Ordering::SeqCst);
+        let _ = worker_state.persist().await;
+        worker_state.snapshot(&worker_app).await;
+    });
+    state.snapshot(&app).await;
+    Ok(())
+}
+
+pub async fn start_selected_queue(
+    app: AppHandle,
+    state: AppState,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    if !state.tools.read().await.runtime.ready {
+        return Err("Щоб запустити чергу, встановіть FFmpeg і FFprobe.".to_string());
+    }
+
+    let requested: HashSet<String> = ids.into_iter().collect();
+    if requested.is_empty() {
+        return Err("Не вибрано відео для обробки.".to_string());
+    }
+    if state
+        .worker_active
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_err()
+    {
+        return Err(
+            "Дочекайтеся завершення поточного відео перед окремим запуском вибраних.".to_string(),
+        );
+    }
+
+    let current_settings = state.settings.read().await.clone();
+    let mut retry_backups = Vec::new();
+    let selected_jobs = {
+        let mut jobs = state.jobs.write().await;
+        let mut selected = HashSet::new();
+        for job in jobs.iter_mut().filter(|job| requested.contains(&job.id)) {
+            if job.status == JobStatus::Pending {
+                selected.insert(job.id.clone());
+                continue;
+            }
+            let previous = job.clone();
+            if actions::reset_for_retry(job) {
+                actions::apply_settings_to_job(job, &current_settings);
+                selected.insert(job.id.clone());
+                retry_backups.push(previous);
+            }
+        }
+        selected
+    };
+    if selected_jobs.is_empty() {
+        state.worker_active.store(false, Ordering::SeqCst);
+        return Err(
+            "Серед вибраних немає відео, яке очікує або потребує повторної обробки.".to_string(),
+        );
+    }
+    if !retry_backups.is_empty() {
+        if let Err(error) = state.persist().await {
+            let mut jobs = state.jobs.write().await;
+            for previous in retry_backups {
+                if let Some(job) = jobs.iter_mut().find(|job| job.id == previous.id) {
+                    *job = previous;
+                }
+            }
+            state.worker_active.store(false, Ordering::SeqCst);
+            drop(jobs);
+            state.snapshot(&app).await;
+            return Err(error);
+        }
+    }
+
+    state.stop_requested.store(false, Ordering::SeqCst);
+    let worker_app = app.clone();
+    let worker_state = state.clone();
+    tauri::async_runtime::spawn(async move {
+        crate::worker::run_queue(
+            worker_app.clone(),
+            worker_state.clone(),
+            Some(selected_jobs),
+        )
+        .await;
         worker_state.worker_active.store(false, Ordering::SeqCst);
         let _ = worker_state.persist().await;
         worker_state.snapshot(&worker_app).await;

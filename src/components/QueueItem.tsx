@@ -1,4 +1,7 @@
 import { useRef } from "react";
+import UseAnimations from "react-useanimations";
+import checkBox from "react-useanimations/lib/checkBox";
+import deleteIcon from "react-useanimations/lib/delete";
 import type { AppSettings, VideoJob } from "../types";
 import { formatDuration, formatFrameRate, formatSize, statusLabel } from "../lib/format";
 import { estimateOutputSize } from "../lib/estimate";
@@ -313,16 +316,6 @@ export function QueueItem({
             <Icon name="film" size={19} />
           </button>
         )}
-        {selectable && (
-          <label className="queue-select">
-            <input
-              type="checkbox"
-              checked={selected}
-              aria-label={`Вибрати ${job.fileName} для групових дій`}
-              onChange={(event) => onSelect(job.id, event.target.checked)}
-            />
-          </label>
-        )}
         {job.status === "completed" && job.outputPath && (
           <button className="icon-button" type="button" aria-label="Показати в теці" title="Показати в теці" onClick={() => onOpen(job.outputPath!, true)}>
             <Icon name="folder" size={20} />
@@ -339,9 +332,42 @@ export function QueueItem({
           </button>
         )}
         {!active && (
-          <button className="icon-button danger-action" type="button" aria-label="Вилучити з черги" title="Вилучити з черги" onClick={() => onRemove(job.id)}>
-            <Icon name="queueRemove" size={20} />
-          </button>
+          <UseAnimations
+            animation={deleteIcon}
+            interaction="hover-replay"
+            size={30}
+            render={(eventProps, animationProps) => (
+              <button
+                {...eventProps}
+                className="icon-button danger-action"
+                type="button"
+                aria-label="Вилучити з черги"
+                title="Вилучити з черги"
+                onClick={(event) => {
+                  eventProps.onClick(event);
+                  onRemove(job.id);
+                }}
+              >
+                <span {...animationProps} />
+              </button>
+            )}
+          />
+        )}
+        {selectable && (
+          <label className="queue-select">
+            <input
+              type="checkbox"
+              checked={selected}
+              aria-label={`Вибрати ${job.fileName} для групових дій`}
+              onChange={(event) => onSelect(job.id, event.target.checked)}
+            />
+            <UseAnimations
+              animation={checkBox}
+              interaction="click-toggle"
+              active={selected}
+              size={27}
+            />
+          </label>
         )}
       </div>
     </article>

@@ -7,7 +7,7 @@ const MODES: readonly SettingsSelectOption<CompressionMode>[] = [
     id: "smart",
     title: "Розумний",
     hint: "Збалансований вибір",
-    badge: { icon: "star", label: "Рекомендовано за замовчуванням" },
+    badge: { label: "Рекомендовано за замовчуванням" },
   },
   { id: "fast", title: "Швидкий", hint: "Пріоритет швидкості" },
   { id: "maximum", title: "Максимум", hint: "Компактніше, повільніше" },

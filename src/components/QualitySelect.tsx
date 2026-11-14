@@ -9,7 +9,7 @@ const PROFILES: readonly SettingsSelectOption<QualityProfile>[] = [
     id: "balanced",
     title: "Збалансована",
     hint: "Якість і розмір",
-    badge: { icon: "star", label: "Рекомендовано за замовчуванням" },
+    badge: { label: "Рекомендовано за замовчуванням" },
   },
   { id: "compact", title: "Компактна", hint: "Менший розмір файлу" },
 ];

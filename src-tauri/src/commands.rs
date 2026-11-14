@@ -17,6 +17,8 @@ pub async fn initialize(app: AppHandle, state: State<'_, AppState>) -> Result<Ap
     crate::preview::cleanup_stale(&state.data_directory).await;
     let tools = MediaTools::discover().await;
     *state.tools.write().await = tools;
+    let settings = state.settings.read().await.clone();
+    queue::apply_settings_to_all_pending_jobs(&state, &settings).await?;
     state.persist().await?;
     Ok(state.snapshot(&app).await)
 }
@@ -171,6 +173,15 @@ pub async fn start_queue(app: AppHandle, state: State<'_, AppState>) -> Result<(
 }
 
 #[tauri::command]
+pub async fn start_selected_queue(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<(), String> {
+    queue::start_selected_queue(app, state.inner().clone(), ids).await
+}
+
+#[tauri::command]
 pub async fn stop_queue(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
     queue::stop_queue(&app, &state).await;
     Ok(())
@@ -224,29 +235,6 @@ pub async fn retry_job(
 }
 
 #[tauri::command]
-pub async fn retry_jobs(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    ids: Vec<String>,
-) -> Result<usize, String> {
-    let count = queue::retry_jobs(&state, &ids).await?;
-    state.snapshot(&app).await;
-    Ok(count)
-}
-
-#[tauri::command]
-pub async fn apply_job_settings(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    ids: Vec<String>,
-    settings: AppSettings,
-) -> Result<usize, String> {
-    let count = queue::apply_settings_to_pending_jobs(&state, &ids, &settings).await?;
-    state.snapshot(&app).await;
-    Ok(count)
-}
-
-#[tauri::command]
 pub async fn skip_job(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -282,8 +270,32 @@ pub async fn update_settings(
     settings: AppSettings,
 ) -> Result<(), String> {
     settings.custom_settings.validate()?;
-    *state.settings.write().await = settings;
-    state.persist_settings().await?;
+    let previous_settings = state.settings.read().await.clone();
+    *state.settings.write().await = settings.clone();
+
+    if let Err(error) = queue::apply_settings_to_all_pending_jobs(&state, &settings).await {
+        *state.settings.write().await = previous_settings;
+        return Err(error);
+    }
+
+    if let Err(error) = state.persist_settings().await {
+        *state.settings.write().await = previous_settings.clone();
+        let queue_rollback =
+            queue::apply_settings_to_all_pending_jobs(&state, &previous_settings).await;
+        let settings_rollback = state.persist_settings().await;
+        if let Err(rollback_error) = queue_rollback {
+            return Err(format!(
+                "Не вдалося зберегти налаштування ({error}); також не вдалося відновити параметри черги ({rollback_error})."
+            ));
+        }
+        if let Err(rollback_error) = settings_rollback {
+            return Err(format!(
+                "Не вдалося зберегти налаштування ({error}) або відновити їх ({rollback_error})."
+            ));
+        }
+        return Err(error);
+    }
+
     state.snapshot(&app).await;
     Ok(())
 }

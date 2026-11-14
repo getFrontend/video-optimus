@@ -1,7 +1,9 @@
+import type { ReactNode } from "react";
 import UseAnimations from "react-useanimations";
+import type { Animation } from "react-useanimations";
 import filePlus from "react-useanimations/lib/filePlus";
+import film from "react-useanimations/lib/film";
 import folder from "react-useanimations/lib/folder";
-import upload from "react-useanimations/lib/upload";
 
 const FORMATS = ["MP4", "MKV", "MOV", "AVI", "WEBM", "TS"];
 
@@ -22,7 +24,7 @@ export function DropZone({
       aria-label="Додавання відео"
     >
       <span className="drop-symbol" aria-hidden="true">
-        <UseAnimations animation={filePlus} interaction="hover-replay" size={80} />
+        <UseAnimations animation={film} interaction="loop" size={80} />
       </span>
       <div className="drop-copy">
         <h2>{dragging ? "Відпустіть, щоб додати" : "Перетягніть відео сюди"}</h2>
@@ -33,15 +35,60 @@ export function DropZone({
         </ul>
       </div>
       <div className="drop-actions">
-        <button className="button button-primary" type="button" disabled={!available} onClick={onFiles}>
-          <UseAnimations animation={upload} interaction="hover-replay" size={32} />
+        <AnimatedActionButton
+          animation={filePlus}
+          className="button button-primary"
+          disabled={!available}
+          onClick={onFiles}
+        >
           Додати файли
-        </button>
-        <button className="button button-secondary drop-folder-button" type="button" disabled={!available} onClick={onFolder}>
-          <UseAnimations animation={folder} interaction="hover-replay" size={32} />
+        </AnimatedActionButton>
+        <AnimatedActionButton
+          animation={folder}
+          className="button button-secondary drop-folder-button"
+          disabled={!available}
+          onClick={onFolder}
+        >
           Вибрати теку
-        </button>
+        </AnimatedActionButton>
       </div>
     </section>
+  );
+}
+
+function AnimatedActionButton({
+  animation,
+  className,
+  disabled,
+  onClick,
+  children,
+}: {
+  animation: Animation;
+  className: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <UseAnimations
+      animation={animation}
+      interaction="hover-replay"
+      size={48}
+      render={(eventProps, animationProps) => (
+        <button
+          {...eventProps}
+          className={className}
+          type="button"
+          disabled={disabled}
+          onClick={(event) => {
+            eventProps.onClick(event);
+            onClick();
+          }}
+        >
+          <span {...animationProps} />
+          {children}
+        </button>
+      )}
+    />
   );
 }
