@@ -118,7 +118,7 @@ export function SettingsScrollbar({
     <div
       className="settings-scrollbar"
       role="scrollbar"
-      aria-label="Прокрутка параметрів стиснення"
+      aria-label="Прокрутка налаштувань"
       aria-controls={viewportId}
       aria-orientation="vertical"
       aria-valuemin={0}

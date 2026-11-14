@@ -37,6 +37,7 @@ impl MediaTools {
                 encoders: Vec::new(),
                 quality_metrics: Vec::new(),
                 logical_processors: logical_processor_count(),
+                processor_name: None,
                 qsv_available: false,
                 ready: false,
             },
@@ -104,6 +105,7 @@ impl MediaTools {
         } else {
             Vec::new()
         };
+        let processor_name = detect_processor_name().await;
 
         let ready = ffmpeg.is_some() && ffprobe.is_some();
         Self {
@@ -114,6 +116,7 @@ impl MediaTools {
                 encoders: available,
                 quality_metrics,
                 logical_processors: logical_processor_count(),
+                processor_name,
                 qsv_available,
                 ready,
             },
@@ -383,7 +386,7 @@ fn parse_quality_metrics(text: &str) -> Vec<String> {
             let mut parts = line.split_whitespace();
             let flags = parts.next()?;
             let name = parts.next()?;
-            let is_filter_line = flags.len() == 3
+            let is_filter_line = (2..=3).contains(&flags.len())
                 && flags
                     .chars()
                     .all(|flag| matches!(flag, 'T' | 'S' | 'C' | '.'));
@@ -473,6 +476,42 @@ fn logical_processor_count() -> usize {
         .unwrap_or(1)
 }
 
+#[cfg(windows)]
+async fn detect_processor_name() -> Option<String> {
+    let result = timeout(
+        Duration::from_secs(2),
+        Command::new("reg.exe")
+            .args([
+                "query",
+                r"HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0",
+                "/v",
+                "ProcessorNameString",
+            ])
+            .kill_on_drop(true)
+            .output(),
+    )
+    .await
+    .ok()?
+    .ok()?;
+    if !result.status.success() {
+        return None;
+    }
+    parse_processor_name(&String::from_utf8_lossy(&result.stdout))
+}
+
+#[cfg(not(windows))]
+async fn detect_processor_name() -> Option<String> {
+    None
+}
+
+fn parse_processor_name(text: &str) -> Option<String> {
+    text.lines().find_map(|line| {
+        let (_, value) = line.split_once("REG_SZ")?;
+        let name = value.trim();
+        (!name.is_empty()).then(|| name.to_string())
+    })
+}
+
 fn find_binary(name: &str) -> Option<PathBuf> {
     let executable = format!("{name}{}", std::env::consts::EXE_SUFFIX);
     let mut candidates = Vec::new();
@@ -504,7 +543,8 @@ fn find_binary(name: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bit_depth, parse_encoder_options, parse_quality_metrics, rate_to_float, rotation_degrees,
+        bit_depth, parse_encoder_options, parse_processor_name, parse_quality_metrics,
+        rate_to_float, rotation_degrees,
     };
     use serde_json::json;
 
@@ -548,5 +588,23 @@ mod tests {
             "Filters:\n T.. ssim V->V SSIM\n ..C psnr V->V PSNR\n ... scale V->V Scale",
         );
         assert_eq!(filters, ["ssim", "psnr"]);
+    }
+
+    #[test]
+    fn detects_quality_filters_with_two_character_flags() {
+        let filters = parse_quality_metrics(
+            "Filters:\n TS psnr VV->V PSNR\n TS ssim VV->V SSIM\n .. scale V->V Scale",
+        );
+        assert_eq!(filters, ["ssim", "psnr"]);
+    }
+
+    #[test]
+    fn parses_processor_name_from_registry_output() {
+        let output = "ProcessorNameString    REG_SZ    Intel(R) Core(TM) Ultra 7 155H";
+        assert_eq!(
+            parse_processor_name(output).as_deref(),
+            Some("Intel(R) Core(TM) Ultra 7 155H")
+        );
+        assert_eq!(parse_processor_name("other registry value"), None);
     }
 }

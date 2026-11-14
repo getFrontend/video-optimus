@@ -59,25 +59,6 @@ export function useOptimizer() {
     setSnapshot(next);
   }, []);
 
-  const testHardwareAcceleration = useCallback(async () => {
-    setCheckingRuntime(true);
-    try {
-      const next = await invoke<AppSnapshot>("refresh_runtime");
-      snapshotRef.current = next;
-      setSnapshot(next);
-      showNotice(
-        next.runtime.qsvAvailable
-          ? "Тест апаратного прискорення пройдено."
-          : "QSV недоступний; для обробки буде використано CPU.",
-        next.runtime.qsvAvailable ? "success" : "warning",
-      );
-    } catch (error) {
-      showNotice(errorMessage(error), "error");
-    } finally {
-      setCheckingRuntime(false);
-    }
-  }, [showNotice]);
-
   const addPaths = useCallback(async (paths: string[]) => {
     const uniquePaths = paths.filter((path) => !addingPaths.current.has(path));
     if (uniquePaths.length === 0) return;
@@ -341,7 +322,6 @@ export function useOptimizer() {
     dragging,
     notice,
     checkingRuntime,
-    testHardwareAcceleration,
     dismissNotice,
     setMode,
     setQuality,

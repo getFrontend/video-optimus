@@ -441,6 +441,7 @@ mod tests {
                 ffmpeg_version: None,
                 quality_metrics: vec![],
                 logical_processors: 1,
+                processor_name: None,
                 encoders: encoders
                     .iter()
                     .map(|(name, available, hardware)| EncoderAvailability {

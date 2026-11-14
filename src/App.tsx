@@ -3,6 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import UseAnimations from "react-useanimations";
 import sidebar from "react-useanimations/lib/sidebar";
 import { BrandMark } from "./components/BrandMark";
+import { CustomSettingsDialog } from "./components/CustomSettingsDialog";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
 import { Icon, type IconName } from "./components/Icon";
 import { SettingsPanel } from "./components/SettingsPanel";
@@ -23,6 +24,7 @@ const noticeIcons = {
 export default function App() {
   const optimizer = useOptimizer();
   const [ffmpegHelpOpen, setFfmpegHelpOpen] = useState(false);
+  const [customSettingsOpen, setCustomSettingsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const settingsToggleRef = useRef<HTMLButtonElement>(null);
   const settingsCloseRef = useRef<HTMLButtonElement>(null);
@@ -125,9 +127,9 @@ export default function App() {
             <aside
               className={`settings-drawer${settingsOpen ? " is-open" : ""}`}
               id="settings-drawer"
-              aria-label="Параметри стиснення та стан системи"
-              aria-hidden={!settingsOpen}
-              inert={!settingsOpen}
+              aria-label="Налаштування"
+              aria-hidden={!settingsOpen || customSettingsOpen}
+              inert={!settingsOpen || customSettingsOpen}
             >
               <UseAnimations
                 animation={sidebar}
@@ -151,35 +153,37 @@ export default function App() {
                   </button>
                 )}
               />
-              <div
-                className="settings-drawer-scroll-area"
-                id="settings-scroll-area"
-                ref={settingsScrollRef}
-                tabIndex={0}
-              >
-                <div className="settings-drawer-content">
-                  <SettingsPanel
-                    settings={optimizer.settings}
-                    runtime={optimizer.snapshot?.runtime ?? null}
-                    onMode={optimizer.setMode}
-                    onQuality={optimizer.setQuality}
-                    onCustomSettings={optimizer.setCustomSettings}
-                    onOutput={optimizer.chooseOutput}
-                    onTargetSize={optimizer.setTargetSize}
-                  />
-                  <SystemPanel
-                    runtime={optimizer.snapshot?.runtime ?? null}
-                    desktop={optimizer.desktop}
-                    checkingRuntime={optimizer.checkingRuntime}
-                    onOpenSetup={() => setFfmpegHelpOpen(true)}
-                  onTestHardware={optimizer.testHardwareAcceleration}
-                  />
+              <div className="settings-drawer-main">
+                <div
+                  className="settings-drawer-scroll-area"
+                  id="settings-scroll-area"
+                  ref={settingsScrollRef}
+                  tabIndex={0}
+                >
+                  <div className="settings-drawer-content">
+                    <SettingsPanel
+                      settings={optimizer.settings}
+                      onMode={optimizer.setMode}
+                      onOpenCustomSettings={() => setCustomSettingsOpen(true)}
+                      onQuality={optimizer.setQuality}
+                      onOutput={optimizer.chooseOutput}
+                      onTargetSize={optimizer.setTargetSize}
+                    />
+                  </div>
                 </div>
+                <SettingsScrollbar
+                  viewportRef={settingsScrollRef}
+                  viewportId="settings-scroll-area"
+                />
               </div>
-              <SettingsScrollbar
-                viewportRef={settingsScrollRef}
-                viewportId="settings-scroll-area"
-              />
+              <footer className="settings-drawer-footer">
+                <SystemPanel
+                  runtime={optimizer.snapshot?.runtime ?? null}
+                  desktop={optimizer.desktop}
+                  checkingRuntime={optimizer.checkingRuntime}
+                  onOpenSetup={() => setFfmpegHelpOpen(true)}
+                />
+              </footer>
             </aside>
           </div>
           {!settingsOpen && (
@@ -196,7 +200,7 @@ export default function App() {
                   aria-label="Відкрити параметри стиснення"
                   aria-controls="settings-drawer"
                   aria-expanded={false}
-                  title="Параметри стиснення"
+                  title="Налаштування"
                   onClick={(event) => {
                     eventProps.onClick(event);
                     setSettingsOpen(true);
@@ -209,6 +213,15 @@ export default function App() {
           )}
         </div>
       </div>
+
+      <CustomSettingsDialog
+        open={customSettingsOpen}
+        settings={optimizer.settings.customSettings}
+        runtime={optimizer.snapshot?.runtime ?? null}
+        targetSizeBytes={optimizer.settings.targetSizeBytes}
+        onChange={optimizer.setCustomSettings}
+        onClose={() => setCustomSettingsOpen(false)}
+      />
 
       <FfmpegSetupDialog
         open={ffmpegHelpOpen}

@@ -2,21 +2,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import UseAnimations from "react-useanimations";
 import xSquare from "react-useanimations/lib/xSquare";
+import cpu from "react-useanimations/lib/cpu";
 import type { RuntimeInfo } from "../types";
 import { Icon } from "./Icon";
+
+const QUALITY_METRICS = ["ssim", "psnr"] as const;
 
 export function SystemPanel({
   runtime,
   desktop,
   checkingRuntime,
   onOpenSetup,
-  onTestHardware,
 }: {
   runtime: RuntimeInfo | null;
   desktop: boolean;
   checkingRuntime: boolean;
   onOpenSetup: () => void;
-  onTestHardware: () => void;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const detailsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -41,12 +42,6 @@ export function SystemPanel({
 
   return (
     <section className="system-panel">
-      <div className="system-heading">
-        <Icon name="cpu" size={20} />
-        <div>
-          <h3>Система кодування</h3>
-        </div>
-      </div>
       {!desktop ? (
         <div className="system-state state-muted">
           Відкрийте настільну версію застосунку
@@ -58,31 +53,43 @@ export function SystemPanel({
         </div>
       ) : runtime?.ready ? (
         <>
-          <button
-            ref={detailsTriggerRef}
-            className="system-check-trigger"
-            type="button"
-            aria-haspopup="dialog"
-            onClick={() => setDetailsOpen(true)}
-          >
-            <span className="system-check-list">
-              <span className="system-check-row state-ready">
-                <span className="system-check-mark"><Icon name="check" size={16} /></span>
-                <span>FFmpeg підключено</span>
-              </span>
-              <span className={`system-check-row${runtime.qsvAvailable ? " state-ready" : " state-muted"}`}>
-                <span className={`system-check-mark${runtime.qsvAvailable ? "" : " is-muted"}`}>
-                  <Icon name={runtime.qsvAvailable ? "check" : "info"} size={16} />
+          <UseAnimations
+            animation={cpu}
+            className="system-check-cpu"
+            interaction="hover-replay"
+            size={28}
+            render={(eventProps, animationProps) => (
+              <button
+                {...eventProps}
+                ref={detailsTriggerRef}
+                className="system-check-trigger"
+                type="button"
+                aria-haspopup="dialog"
+                onClick={(event) => {
+                  eventProps.onClick(event);
+                  setDetailsOpen(true);
+                }}
+              >
+                <span className="system-check-list">
+                  <span className="system-check-row state-ready">
+                    <span className="system-check-mark"><Icon name="check" size={16} /></span>
+                    <span>FFmpeg підключено</span>
+                  </span>
+                  <span className={`system-check-row${runtime.qsvAvailable ? " state-ready" : " state-muted"}`}>
+                    <span className={`system-check-mark${runtime.qsvAvailable ? "" : " is-muted"}`}>
+                      <Icon name={runtime.qsvAvailable ? "check" : "info"} size={16} />
+                    </span>
+                    <span>
+                      {runtime.qsvAvailable
+                        ? "Апаратне прискорення QSV"
+                        : "Апаратне прискорення QSV не виявлено"}
+                    </span>
+                  </span>
                 </span>
-                <span>
-                  {runtime.qsvAvailable
-                    ? "Апаратне прискорення QSV"
-                    : "Апаратне прискорення QSV не виявлено"}
-                </span>
-              </span>
-            </span>
-            <Icon className="system-check-chevron" name="chevron" size={16} aria-hidden="true" />
-          </button>
+                <span {...animationProps} aria-hidden="true" />
+              </button>
+            )}
+          />
           {detailsOpen && createPortal(
             <section
               className="system-details-overlay"
@@ -107,8 +114,21 @@ export function SystemPanel({
                   <dd className="system-details-raw">{runtime.ffmpegVersion ?? "Недоступна"}</dd>
                 </div>
                 <div>
-                  <dt>Логічні потоки CPU</dt>
-                  <dd>{runtime.logicalProcessors}</dd>
+                  <dt>CPU та логічні потоки</dt>
+                  <dd className="system-cpu-value">
+                    <UseAnimations
+                      animation={cpu}
+                      className="system-cpu-animation"
+                      interaction="loop"
+                      size={20}
+                      aria-hidden="true"
+                    />
+                    <span>
+                      {runtime.processorName
+                        ? `${runtime.processorName} (${runtime.logicalProcessors})`
+                        : runtime.logicalProcessors}
+                    </span>
+                  </dd>
                 </div>
                 <div>
                   <dt>FFmpeg</dt>
@@ -126,8 +146,11 @@ export function SystemPanel({
                         <ul className="system-encoder-list">
                           {availableEncoders.map((encoder) => (
                             <li key={encoder.name}>
+                              <Icon className="system-encoder-check" name="check" size={14} />
                               <span>{encoder.name}</span>
-                              <small>{encoder.hardware ? "QSV-тест пройден" : "CPU-кодер доступен"}</small>
+                              <small>
+                                ({encoder.hardware ? "QSV-тест пройден" : "CPU-кодер доступен"})
+                              </small>
                             </li>
                           ))}
                         </ul>
@@ -138,20 +161,27 @@ export function SystemPanel({
                 <div>
                   <dt>Фільтри оцінки якості</dt>
                   <dd>
-                    {runtime.qualityMetrics.length
-                      ? runtime.qualityMetrics.join(", ").toUpperCase()
-                      : "SSIM / PSNR недоступні"}
+                    <ul className="system-metric-list">
+                      {QUALITY_METRICS.map((metric) => {
+                        const available = runtime.qualityMetrics.includes(metric);
+                        return (
+                          <li
+                            className={available ? "state-ready" : "state-muted"}
+                            key={metric}
+                          >
+                            <Icon
+                              name={available ? "check" : "info"}
+                              size={15}
+                            />
+                            <span>{metric.toUpperCase()}</span>
+                            <small>{available ? "Доступний" : "Недоступний"}</small>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </dd>
                 </div>
               </dl>
-              <button
-                className="button button-secondary system-hardware-test"
-                type="button"
-                disabled={checkingRuntime}
-                onClick={onTestHardware}
-              >
-                {checkingRuntime ? "Перевірка кодерів…" : "Перевірити апаратне прискорення"}
-              </button>
             </section>,
             document.body,
           )}

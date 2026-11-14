@@ -100,6 +100,7 @@ export interface RuntimeInfo {
   encoders: EncoderAvailability[];
   qualityMetrics: string[];
   logicalProcessors: number;
+  processorName: string | null;
   qsvAvailable: boolean;
   ready: boolean;
 }

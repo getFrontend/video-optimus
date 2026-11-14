@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import UseAnimations from "react-useanimations";
-import radioButton from "react-useanimations/lib/radioButton";
-import star from "react-useanimations/lib/star";
 import { Icon } from "./Icon";
+import { RecommendationBadge, SettingsSelectPopover } from "./SettingsSelectPopover";
 
 type SettingsSelectBadge = {
   label: string;
@@ -22,31 +20,37 @@ type SettingsSelectProps<Value extends string> = {
   value: Value;
   options: readonly SettingsSelectOption<Value>[];
   labelledBy: string;
+  popoverContainer?: HTMLElement | null;
   onChange: (value: Value) => void;
 };
 
 type MenuState = "closed" | "open" | "closing";
+type PopoverPosition = { top: number; left: number; width: number };
+const DIALOG_FOCUSABLE_SELECTOR =
+  'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 export function SettingsSelect<Value extends string>({
   name,
   value,
   options,
   labelledBy,
+  popoverContainer,
   onChange,
 }: SettingsSelectProps<Value>) {
   const [menuState, setMenuState] = useState<MenuState>("closed");
   const [menuPlacement, setMenuPlacement] = useState<"top" | "bottom">("bottom");
   const [menuMaxHeight, setMenuMaxHeight] = useState<number>();
+  const [popoverPosition, setPopoverPosition] = useState<PopoverPosition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-  const selectedRef = useRef<HTMLInputElement>(null);
   const closeTimerRef = useRef<number | null>(null);
   const instanceId = useId();
   const selectedOption = options.find((option) => option.id === value) ?? options[0];
   const isOpen = menuState === "open";
   const menuId = `settings-select-menu-${instanceId}`;
   const valueId = `settings-select-value-${instanceId}`;
+  const triggerId = `settings-select-trigger-${instanceId}`;
 
   const closeMenu = useCallback((restoreFocus: boolean) => {
     if (menuState !== "open") return;
@@ -65,33 +69,46 @@ export function SettingsSelect<Value extends string>({
     }, duration);
   }, [menuState]);
 
+  const updatePopoverPosition = useCallback(() => {
+    const triggerRect = triggerRef.current?.getBoundingClientRect();
+    if (!triggerRect) return;
+
+    const rootStyles = getComputedStyle(document.documentElement);
+    const safeSpace = Number.parseFloat(rootStyles.getPropertyValue("--space-lg")) || 24;
+    const menuGap = Number.parseFloat(rootStyles.getPropertyValue("--space-xs")) || 8;
+    const above = Math.max(0, triggerRect.top - safeSpace);
+    const below = Math.max(0, window.innerHeight - triggerRect.bottom - safeSpace);
+    const menuHeight = popoverRef.current?.scrollHeight ?? 0;
+    const fitsAbove = above >= menuHeight;
+    const fitsBelow = below >= menuHeight;
+    const placement =
+      fitsAbove && !fitsBelow || (!fitsBelow && above > below) ? "top" : "bottom";
+    const availableSpace = placement === "top" ? above : below;
+    const visibleHeight = fitsAbove || fitsBelow
+      ? menuHeight
+      : Math.max(0, Math.min(menuHeight, availableSpace - menuGap));
+
+    setMenuPlacement(placement);
+    setMenuMaxHeight(fitsAbove || fitsBelow ? undefined : visibleHeight);
+    if (popoverContainer) {
+      const containerRect = popoverContainer.getBoundingClientRect();
+      setPopoverPosition({
+        top: (placement === "top"
+          ? triggerRect.top - visibleHeight - menuGap
+          : triggerRect.bottom + menuGap) - containerRect.top + popoverContainer.scrollTop,
+        left: triggerRect.left - containerRect.left + popoverContainer.scrollLeft,
+        width: triggerRect.width,
+      });
+    }
+  }, [popoverContainer]);
+
   const openMenu = () => {
     if (closeTimerRef.current !== null) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
 
-    const triggerRect = triggerRef.current?.getBoundingClientRect();
-    if (triggerRect) {
-      const rootStyles = getComputedStyle(document.documentElement);
-      const safeSpace = Number.parseFloat(rootStyles.getPropertyValue("--space-lg")) || 24;
-      const menuGap = Number.parseFloat(rootStyles.getPropertyValue("--space-xs")) || 8;
-      const above = Math.max(0, triggerRect.top - safeSpace);
-      const below = Math.max(0, window.innerHeight - triggerRect.bottom - safeSpace);
-      const menuHeight = popoverRef.current?.scrollHeight ?? 0;
-      const fitsAbove = above >= menuHeight;
-      const fitsBelow = below >= menuHeight;
-      const placement =
-        fitsAbove && !fitsBelow || (!fitsBelow && above > below) ? "top" : "bottom";
-      const availableSpace = placement === "top" ? above : below;
-
-      setMenuPlacement(placement);
-      setMenuMaxHeight(
-        fitsAbove || fitsBelow
-          ? undefined
-          : Math.max(0, Math.min(menuHeight, availableSpace - menuGap)),
-      );
-    }
+    updatePopoverPosition();
     setMenuState("open");
   };
 
@@ -99,13 +116,32 @@ export function SettingsSelect<Value extends string>({
     if (!isOpen) return;
 
     const dismissOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) closeMenu(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !popoverRef.current?.contains(target)) {
+        closeMenu(false);
+      }
     };
 
     document.addEventListener("pointerdown", dismissOutside);
-    selectedRef.current?.focus({ preventScroll: true });
+    popoverRef.current
+      ?.querySelector<HTMLInputElement>('input[type="radio"]:checked:not(:disabled)')
+      ?.focus({ preventScroll: true });
     return () => document.removeEventListener("pointerdown", dismissOutside);
   }, [isOpen, closeMenu]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updatePosition = () => updatePopoverPosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    const frame = window.requestAnimationFrame(updatePosition);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen, updatePopoverPosition]);
 
   useEffect(() => () => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
@@ -157,6 +193,22 @@ export function SettingsSelect<Value extends string>({
     }
   };
 
+  const handlePopoverKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab" || !popoverContainer) return;
+
+    const dialog = popoverContainer.closest<HTMLElement>('[role="dialog"]');
+    const focusable = Array.from(
+      dialog?.querySelectorAll<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) ?? [],
+    ).filter((element) => !element.closest("[inert]") && element.getClientRects().length > 0);
+    const triggerIndex = focusable.findIndex((element) => element.id === triggerId);
+    if (triggerIndex === -1) return;
+
+    const nextIndex = triggerIndex + (event.shiftKey ? -1 : 1);
+    event.preventDefault();
+    closeMenu(false);
+    (focusable[nextIndex] ?? focusable[event.shiftKey ? focusable.length - 1 : 0]).focus();
+  };
+
   if (!selectedOption) return null;
 
   return (
@@ -168,12 +220,14 @@ export function SettingsSelect<Value extends string>({
       onKeyDown={handleKeyDown}
       onBlur={(event) => {
         if (isOpen && !event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          closeMenu(false);
+          const nextTarget = event.relatedTarget as Node | null;
+          if (!nextTarget || !popoverRef.current?.contains(nextTarget)) closeMenu(false);
         }
       }}
     >
       <button
         ref={triggerRef}
+        id={triggerId}
         className="settings-select-trigger"
         type="button"
         aria-labelledby={`${labelledBy} ${valueId}`}
@@ -197,83 +251,30 @@ export function SettingsSelect<Value extends string>({
         <Icon name="chevron" size={16} className="settings-select-chevron" />
       </button>
 
-      <div
-        className={`settings-select-popover t-dropdown${isOpen ? " is-open" : ""}${menuState === "closing" ? " is-closing" : ""}`}
-        ref={popoverRef}
+      <SettingsSelectPopover
         id={menuId}
-        data-origin={menuPlacement === "top" ? "bottom-left" : "top-left"}
-        aria-hidden={!isOpen}
-        inert={!isOpen}
-        style={menuMaxHeight === undefined ? undefined : { maxHeight: menuMaxHeight }}
-      >
-        <div className="settings-select-options" role="radiogroup" aria-labelledby={labelledBy}>
-          {options.map((option) => (
-            <label
-              key={option.id}
-              className={`settings-select-option${value === option.id ? " is-selected" : ""}${option.disabled ? " is-disabled" : ""}`}
-            >
-              <input
-                ref={option.id === value ? selectedRef : undefined}
-                type="radio"
-                name={name}
-                value={option.id}
-                checked={value === option.id}
-                disabled={option.disabled}
-                onClick={() => {
-                  if (value === option.id) closeMenu(true);
-                }}
-                onChange={() => {
-                  onChange(option.id);
-                  closeMenu(true);
-                }}
-              />
-              <UseAnimations
-                animation={radioButton}
-                interaction="click-toggle"
-                active={value === option.id}
-                size={27}
-              />
-              <span className="settings-select-option-text">
-                <span className="settings-select-title">
-                  <strong>{option.title}</strong>
-                  {option.badge && (
-                    <RecommendationBadge
-                      badge={option.badge}
-                      active={option.id === value}
-                    />
-                  )}
-                </span>
-                <small>{option.hint}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RecommendationBadge({
-  badge,
-  active,
-}: {
-  badge: SettingsSelectBadge;
-  active: boolean;
-}) {
-  return (
-    <span
-      className="settings-select-badge"
-      role="img"
-      aria-label={badge.label}
-      title={badge.label}
-    >
-      <UseAnimations
-        animation={star}
-        interaction="click-toggle"
-        active={active}
-        size={24}
-        aria-hidden="true"
+        triggerId={triggerId}
+        name={name}
+        value={value}
+        options={options}
+        labelledBy={labelledBy}
+        container={popoverContainer}
+        popoverRef={popoverRef}
+        isOpen={isOpen}
+        isClosing={menuState === "closing"}
+        isPortaled={Boolean(popoverContainer)}
+        menuPlacement={menuPlacement}
+        menuMaxHeight={menuMaxHeight}
+        popoverPosition={popoverPosition}
+        onKeyDown={handlePopoverKeyDown}
+        onOptionClick={(optionValue) => {
+          if (value === optionValue) closeMenu(true);
+        }}
+        onOptionChange={(optionValue) => {
+          onChange(optionValue);
+          closeMenu(true);
+        }}
       />
-    </span>
+    </div>
   );
 }

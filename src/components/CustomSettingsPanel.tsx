@@ -53,11 +53,15 @@ export function CustomSettingsPanel({
   settings,
   runtime,
   targetSizeBytes,
+  popoverContainer,
+  showHeading = true,
   onChange,
 }: {
   settings: CustomSettings;
   runtime: RuntimeInfo | null;
   targetSizeBytes: number | null;
+  popoverContainer?: HTMLElement | null;
+  showHeading?: boolean;
   onChange: (settings: CustomSettings) => void;
 }) {
   const id = useId();
@@ -120,8 +124,11 @@ export function CustomSettingsPanel({
   };
 
   return (
-    <section className="custom-settings-panel" aria-labelledby={`${id}-heading`}>
-      <h3 id={`${id}-heading`}>Налаштування Custom</h3>
+    <section
+      className="custom-settings-panel"
+      aria-labelledby={showHeading ? `${id}-heading` : "custom-settings-dialog-title"}
+    >
+      {showHeading && <h3 id={`${id}-heading`}>Налаштування Custom</h3>}
       {capabilitiesKnown && !codecOptions.some((option) => !option.disabled) && (
         <p className="custom-settings-note is-warning">
           Для вибраних параметрів не знайдено доступного енкодера.
@@ -135,6 +142,7 @@ export function CustomSettingsPanel({
           value={settings.codec}
           options={codecOptions}
           labelledBy={`${id}-codec-label`}
+          popoverContainer={popoverContainer}
           onChange={(codecValue) => update("codec", codecValue)}
         />
       </fieldset>
@@ -146,6 +154,7 @@ export function CustomSettingsPanel({
           value={settings.device}
           options={deviceOptions}
           labelledBy={`${id}-device-label`}
+          popoverContainer={popoverContainer}
           onChange={(device) => update("device", device)}
         />
       </fieldset>
@@ -157,6 +166,7 @@ export function CustomSettingsPanel({
           value={settings.preset}
           options={PRESETS.map((option) => ({ ...option, disabled: !presetAvailable }))}
           labelledBy={`${id}-preset-label`}
+          popoverContainer={popoverContainer}
           onChange={(preset) => update("preset", preset)}
         />
         {!presetAvailable && (
@@ -173,6 +183,7 @@ export function CustomSettingsPanel({
           value={settings.container}
           options={CONTAINERS}
           labelledBy={`${id}-container-label`}
+          popoverContainer={popoverContainer}
           onChange={(container) => update("container", container)}
         />
         {settings.container === "mp4" && (
@@ -189,6 +200,7 @@ export function CustomSettingsPanel({
           value={settings.audioCodec}
           options={AUDIO_CODECS}
           labelledBy={`${id}-audio-codec-label`}
+          popoverContainer={popoverContainer}
           onChange={(audioCodec) => update("audioCodec", audioCodec)}
         />
       </fieldset>
@@ -201,12 +213,13 @@ export function CustomSettingsPanel({
             value={`${settings.audioBitrateKbps}` as AudioBitrate}
             options={AUDIO_BITRATE_OPTIONS}
             labelledBy={`${id}-audio-bitrate-label`}
+            popoverContainer={popoverContainer}
             onChange={(bitrate) => update("audioBitrateKbps", Number(bitrate))}
           />
         </fieldset>
       )}
 
-      <div className="setting-block custom-setting-block">
+      <div className="setting-block custom-setting-block custom-video-bitrate-block">
         <label className="setting-label" htmlFor={`${id}-video-bitrate`}>
           Бітрейт відео, кбіт/с
         </label>

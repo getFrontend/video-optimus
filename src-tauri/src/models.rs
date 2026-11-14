@@ -236,6 +236,8 @@ pub struct RuntimeInfo {
     pub quality_metrics: Vec<String>,
     #[serde(default)]
     pub logical_processors: usize,
+    #[serde(default)]
+    pub processor_name: Option<String>,
     pub qsv_available: bool,
     pub ready: bool,
 }
