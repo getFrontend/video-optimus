@@ -3,6 +3,7 @@ use crate::{
     media::MediaTools,
     models::{CompressionMode, CustomAudioCodec, VideoJob},
     state::AppState,
+    subprocess::hidden_console,
     worker::update_job,
 };
 use std::{path::Path, sync::Arc, time::Duration};
@@ -265,7 +266,7 @@ async fn run_encoder_pass(
             temporary,
         },
     );
-    let mut child = Command::new(ffmpeg)
+    let mut child = hidden_console(Command::new(ffmpeg))
         .args(args)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())

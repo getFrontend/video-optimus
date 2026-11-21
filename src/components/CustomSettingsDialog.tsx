@@ -1,8 +1,8 @@
 import type { KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import UseAnimations from "react-useanimations";
 import xSquare from "react-useanimations/lib/xSquare";
 import type { CustomSettings, RuntimeInfo } from "../types";
+import { AnimatedIcon } from "./AnimatedIcon";
 import { CustomSettingsPanel } from "./CustomSettingsPanel";
 import { Icon } from "./Icon";
 
@@ -121,7 +121,7 @@ export function CustomSettingsDialog({
             aria-label="Закрити налаштування"
             onClick={onClose}
           >
-            <UseAnimations animation={xSquare} interaction="hover-replay" size={54} />
+            <AnimatedIcon animation={xSquare} interaction="hover-replay" size={54} />
           </button>
         </header>
 

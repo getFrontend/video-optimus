@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import UseAnimations from "react-useanimations";
 import sidebar from "react-useanimations/lib/sidebar";
 import packageInfo from "../package.json";
 import { BrandMark } from "./components/BrandMark";
+import { AnimatedIcon } from "./components/AnimatedIcon";
 import { CustomSettingsDialog } from "./components/CustomSettingsDialog";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
 import { Icon, type IconName } from "./components/Icon";
@@ -135,7 +135,7 @@ export default function App() {
               aria-hidden={!settingsOpen || customSettingsOpen}
               inert={!settingsOpen || customSettingsOpen}
             >
-              <UseAnimations
+              <AnimatedIcon
                 animation={sidebar}
                 interaction="hover-replay"
                 size={27}
@@ -192,7 +192,7 @@ export default function App() {
             </aside>
           </div>
           {!settingsOpen && (
-            <UseAnimations
+            <AnimatedIcon
               animation={sidebar}
               interaction="hover-replay"
               size={27}

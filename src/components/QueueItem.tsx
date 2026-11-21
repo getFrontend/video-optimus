@@ -1,11 +1,11 @@
 import { useRef } from "react";
-import UseAnimations from "react-useanimations";
 import checkBox from "react-useanimations/lib/checkBox";
 import deleteIcon from "react-useanimations/lib/delete";
 import visibility2 from "react-useanimations/lib/visibility2";
 import type { AppSettings, VideoJob } from "../types";
 import { formatDuration, formatFrameRate, formatSize, statusLabel } from "../lib/format";
 import { estimateOutputSize } from "../lib/estimate";
+import { AnimatedIcon } from "./AnimatedIcon";
 import { Icon } from "./Icon";
 import { VideoThumbnail } from "./VideoThumbnail";
 
@@ -316,7 +316,7 @@ export function QueueItem({
             title={skipped ? "Повернути відео в чергу" : "Пропустити відео"}
             onClick={() => onSetSkipped(job.id, !skipped)}
           >
-            <UseAnimations
+            <AnimatedIcon
               animation={visibility2}
               interaction="click-toggle"
               active={skipped}
@@ -330,7 +330,7 @@ export function QueueItem({
           </button>
         )}
         {!active && (
-          <UseAnimations
+          <AnimatedIcon
             animation={deleteIcon}
             interaction="hover-replay"
             size={30}
@@ -359,7 +359,7 @@ export function QueueItem({
               aria-label={`Вибрати ${job.fileName} для групових дій`}
               onChange={(event) => onSelect(job.id, event.target.checked)}
             />
-            <UseAnimations
+            <AnimatedIcon
               animation={checkBox}
               interaction="click-toggle"
               active={selected}

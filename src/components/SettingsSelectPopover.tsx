@@ -1,9 +1,9 @@
 import type { KeyboardEventHandler, RefObject } from "react";
 import { createPortal } from "react-dom";
-import UseAnimations from "react-useanimations";
 import radioButton from "react-useanimations/lib/radioButton";
 import star from "react-useanimations/lib/star";
 import type { SettingsSelectOption } from "./SettingsSelect";
+import { AnimatedIcon } from "./AnimatedIcon";
 
 export function SettingsSelectPopover<Value extends string>({
   id,
@@ -73,7 +73,7 @@ export function SettingsSelectPopover<Value extends string>({
               onClick={() => onOptionClick(option.id)}
               onChange={() => onOptionChange(option.id)}
             />
-            <UseAnimations
+            <AnimatedIcon
               animation={radioButton}
               interaction="click-toggle"
               active={value === option.id}
@@ -114,7 +114,7 @@ export function RecommendationBadge({
       aria-label={badge.label}
       title={badge.label}
     >
-      <UseAnimations
+      <AnimatedIcon
         animation={star}
         interaction="click-toggle"
         active={active}

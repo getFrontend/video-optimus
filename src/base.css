@@ -17,6 +17,8 @@ p { margin: 0; text-wrap: pretty; }
 p:not([class]) { max-width: 65ch; }
 img, video { max-width: 100%; height: auto; display: block; }
 svg { display: block; }
+:root [data-useanimations] path[stroke^="rgb"]:not([stroke="rgb(255,255,255)"]) { stroke: var(--ua-stroke, currentColor) !important; }
+:root [data-useanimations] path[fill="rgb(0,0,0)"] { fill: var(--ua-fill, var(--ua-stroke, currentColor)) !important; }
 [hidden] { display: none !important; }
 button, input, select, textarea { font: inherit; }
 .container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--gutter); box-sizing: border-box; }

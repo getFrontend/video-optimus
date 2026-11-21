@@ -2,6 +2,7 @@ use crate::environment::refresh_process_environment;
 use crate::models::{
     AudioStreamInfo, EncoderAvailability, RuntimeInfo, SubtitleStreamInfo, VideoMetadata,
 };
+use crate::subprocess::hidden_console;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use tokio::{
@@ -54,7 +55,7 @@ impl MediaTools {
         let mut version = None;
 
         if let Some(path) = ffmpeg.as_ref() {
-            let output = Command::new(path)
+            let output = hidden_console(Command::new(path))
                 .args(["-hide_banner", "-encoders"])
                 .output()
                 .await;
@@ -87,7 +88,11 @@ impl MediaTools {
                 }
             }
 
-            if let Ok(output) = Command::new(path).args(["-version"]).output().await {
+            if let Ok(output) = hidden_console(Command::new(path))
+                .args(["-version"])
+                .output()
+                .await
+            {
                 let text = format!(
                     "{}{}",
                     String::from_utf8_lossy(&output.stdout),
@@ -127,7 +132,7 @@ impl MediaTools {
 
     pub async fn analyze(&self, path: &Path) -> Result<VideoMetadata, String> {
         let probe = self.ffprobe.as_ref().ok_or_else(missing_tools)?;
-        let mut command = Command::new(probe);
+        let mut command = hidden_console(Command::new(probe));
         command.kill_on_drop(true);
         let output = timeout(
             Duration::from_secs(60),
@@ -278,7 +283,7 @@ impl MediaTools {
         };
         let result = timeout(
             Duration::from_secs(15),
-            Command::new(ffmpeg)
+            hidden_console(Command::new(ffmpeg))
                 .args(["-hide_banner", "-loglevel", "error", "-ss"])
                 .arg(format!("{seek_seconds:.3}"))
                 .args(["-i"])
@@ -314,7 +319,7 @@ impl MediaTools {
 async fn test_qsv(ffmpeg: &Path, encoder: &str) -> bool {
     let result = tokio::time::timeout(
         Duration::from_secs(4),
-        Command::new(ffmpeg)
+        hidden_console(Command::new(ffmpeg))
             .args([
                 "-hide_banner",
                 "-loglevel",
@@ -348,7 +353,7 @@ async fn encoder_options(ffmpeg: &Path, encoder: &str) -> Vec<String> {
     let query = format!("encoder={encoder}");
     let result = timeout(
         Duration::from_secs(2),
-        Command::new(ffmpeg)
+        hidden_console(Command::new(ffmpeg))
             .args(["-hide_banner", "-h", &query])
             .kill_on_drop(true)
             .output(),
@@ -368,7 +373,7 @@ async fn encoder_options(ffmpeg: &Path, encoder: &str) -> Vec<String> {
 async fn detect_quality_metrics(ffmpeg: &Path) -> Vec<String> {
     let result = timeout(
         Duration::from_secs(4),
-        Command::new(ffmpeg)
+        hidden_console(Command::new(ffmpeg))
             .args(["-hide_banner", "-filters"])
             .kill_on_drop(true)
             .output(),
@@ -486,7 +491,7 @@ fn logical_processor_count() -> usize {
 async fn detect_processor_name() -> Option<String> {
     let result = timeout(
         Duration::from_secs(2),
-        Command::new("reg.exe")
+        hidden_console(Command::new("reg.exe"))
             .args([
                 "query",
                 r"HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0",

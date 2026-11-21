@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
-import UseAnimations from "react-useanimations";
 import visibility2 from "react-useanimations/lib/visibility2";
 import {
   getVideoThumbnail,
   invalidateVideoThumbnail,
 } from "../lib/videoThumbnails";
+import { AnimatedIcon } from "./AnimatedIcon";
 import { Icon } from "./Icon";
 
 export function VideoThumbnail({
@@ -86,7 +86,7 @@ export function VideoThumbnail({
       </span>
       {skipped && (
         <span className="thumbnail-skip-overlay" aria-hidden="true">
-          <UseAnimations
+          <AnimatedIcon
             animation={visibility2}
             interaction="click-toggle"
             active

@@ -7,6 +7,7 @@ mod models;
 mod preview;
 mod queue;
 mod state;
+mod subprocess;
 mod validation;
 mod window_controls;
 mod worker;

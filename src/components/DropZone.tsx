@@ -1,9 +1,9 @@
 import { useRef, useState, type CSSProperties, type ReactNode } from "react";
-import UseAnimations from "react-useanimations";
 import type { Animation } from "react-useanimations";
 import filePlus from "react-useanimations/lib/filePlus";
 import film from "react-useanimations/lib/film";
 import folder from "react-useanimations/lib/folder";
+import { AnimatedIcon } from "./AnimatedIcon";
 import { useAdaptiveButtonScale } from "../hooks/useAdaptiveButtonScale";
 
 const FORMATS = ["MP4", "MKV", "MOV", "AVI", "WEBM", "TS"];
@@ -40,7 +40,7 @@ export function DropZone({
       aria-label="Додавання відео"
     >
       <span className="drop-symbol" aria-hidden="true">
-        <UseAnimations
+        <AnimatedIcon
           animation={film}
           interaction="loop"
           size={Math.round(80 * contentScale)}
@@ -94,7 +94,7 @@ function AnimatedActionButton({
   children: ReactNode;
 }) {
   return (
-    <UseAnimations
+    <AnimatedIcon
       animation={animation}
       interaction="hover-replay"
       size={iconSize}

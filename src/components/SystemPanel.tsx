@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import UseAnimations from "react-useanimations";
 import xSquare from "react-useanimations/lib/xSquare";
 import cpu from "react-useanimations/lib/cpu";
 import type { RuntimeInfo } from "../types";
+import { AnimatedIcon } from "./AnimatedIcon";
 import { Icon } from "./Icon";
 
 const QUALITY_METRICS = ["ssim", "psnr"] as const;
@@ -53,7 +53,7 @@ export function SystemPanel({
         </div>
       ) : runtime?.ready ? (
         <>
-          <UseAnimations
+          <AnimatedIcon
             animation={cpu}
             className="system-check-cpu"
             interaction="hover-replay"
@@ -105,7 +105,7 @@ export function SystemPanel({
                   aria-label="Закрити детальну інформацію"
                   onClick={closeDetails}
                 >
-                  <UseAnimations animation={xSquare} interaction="hover-replay" size={36} />
+                  <AnimatedIcon animation={xSquare} interaction="hover-replay" size={36} />
                 </button>
               </header>
               <dl className="system-details-list">
@@ -116,7 +116,7 @@ export function SystemPanel({
                 <div>
                   <dt>CPU та логічні потоки</dt>
                   <dd className="system-cpu-value">
-                    <UseAnimations
+                    <AnimatedIcon
                       animation={cpu}
                       className="system-cpu-animation"
                       interaction="loop"

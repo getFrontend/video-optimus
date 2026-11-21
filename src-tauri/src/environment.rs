@@ -1,3 +1,4 @@
+use crate::subprocess::hidden_console;
 #[cfg(windows)]
 use std::time::Duration;
 #[cfg(windows)]
@@ -24,7 +25,7 @@ pub async fn refresh_process_environment() {
     {
         let result = timeout(
             Duration::from_secs(3),
-            Command::new("powershell.exe")
+            hidden_console(Command::new("powershell.exe"))
                 .args([
                     "-NoLogo",
                     "-NoProfile",

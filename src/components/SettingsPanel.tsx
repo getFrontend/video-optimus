@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import UseAnimations from "react-useanimations";
 import settings2 from "react-useanimations/lib/settings2";
 import user from "react-useanimations/lib/user";
 import type {
@@ -12,6 +11,7 @@ import { shortPath } from "../lib/format";
 import { Icon } from "./Icon";
 import { ModeSelect } from "./ModeSelect";
 import { QualitySelect } from "./QualitySelect";
+import { AnimatedIcon } from "./AnimatedIcon";
 
 const CUSTOM_CODEC_LABELS: Record<CustomSettings["codec"], string> = {
   h264: "H.264 / AVC",
@@ -58,7 +58,7 @@ function CustomSettingsSummary({
       onBlur={() => setActive(false)}
       onClick={onOpen}
     >
-      <UseAnimations
+      <AnimatedIcon
         animation={user}
         interaction="click-toggle"
         active={active}
@@ -77,7 +77,7 @@ function CustomSettingsSummary({
           ].join(" · ")}
         </small>
       </span>
-      <UseAnimations
+      <AnimatedIcon
         animation={settings2}
         interaction="click-toggle"
         active={active}

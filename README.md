@@ -66,10 +66,10 @@ MSI and NSIS bundles build successfully, but installer execution and actual enco
 After making FFmpeg available on the build machine through `PATH` or the environment variables above, and configuring the Windows C++ Build Tools:
 
 ```powershell
-npm run tauri build
+npm run release
 ```
 
-The configuration creates NSIS and MSI bundles. FFmpeg is not copied into either installer.
+This creates a portable `video-optimus.exe` without MSI or NSIS installers, then copies it to `.video-optimus_releases/Video Optimus_v<version>.exe`. The executable does not bundle FFmpeg/FFprobe; they must be installed or configured separately. To build MSI and NSIS installers instead, run `npm run tauri build`.
 
 ## Checks
 

@@ -2,6 +2,7 @@ use crate::{
     encoding::{encoding_args, EncodingPlan},
     media::MediaTools,
     models::VideoJob,
+    subprocess::hidden_console,
 };
 use std::path::Path;
 use tokio::{process::Command, time::timeout, time::Duration};
@@ -104,7 +105,10 @@ async fn run_encoder(
     );
     let result = timeout(
         Duration::from_secs(PREVIEW_TIMEOUT_SECONDS),
-        Command::new(ffmpeg).args(args).kill_on_drop(true).output(),
+        hidden_console(Command::new(ffmpeg))
+            .args(args)
+            .kill_on_drop(true)
+            .output(),
     )
     .await
     .map_err(|_| "Час створення preview-фрагмента вичерпано.".to_string())?
@@ -185,7 +189,7 @@ async fn run_quality_metric(
     let filter_graph = format!("[0:v:0][1:v:0]{filter}");
     let result = timeout(
         Duration::from_secs(PREVIEW_TIMEOUT_SECONDS),
-        Command::new(ffmpeg)
+        hidden_console(Command::new(ffmpeg))
             .args(["-hide_banner", "-loglevel", "info", "-ss"])
             .arg(format!("{start_seconds:.3}"))
             .args(["-t"])
