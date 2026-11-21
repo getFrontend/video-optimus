@@ -95,6 +95,7 @@ export function SettingsPanel({
   onOpenCustomSettings,
   onQuality,
   onOutput,
+  outputDisabled,
   onTargetSize,
 }: {
   settings: AppSettings;
@@ -102,6 +103,7 @@ export function SettingsPanel({
   onOpenCustomSettings: () => void;
   onQuality: (quality: QualityProfile) => void;
   onOutput: () => void;
+  outputDisabled: boolean;
   onTargetSize: (targetSizeBytes: number | null) => void;
 }) {
   const [targetSizeEnabled, setTargetSizeEnabled] = useState(
@@ -225,7 +227,12 @@ export function SettingsPanel({
 
       <div className="setting-block output-block">
         <div className="setting-label">Тека результатів</div>
-        <button className="output-picker" type="button" onClick={onOutput}>
+        <button
+          className="output-picker"
+          type="button"
+          disabled={outputDisabled}
+          onClick={onOutput}
+        >
           <span className="output-icon"><Icon name="folder" size={20} /></span>
           <span className="output-value">
             <strong>{settings.outputDirectory ? "Теку вибрано" : "Як в оригіналу"}</strong>

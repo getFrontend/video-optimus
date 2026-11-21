@@ -171,6 +171,7 @@ export default function App() {
                       onOpenCustomSettings={() => setCustomSettingsOpen(true)}
                       onQuality={optimizer.setQuality}
                       onOutput={optimizer.chooseOutput}
+                      outputDisabled={jobs.length === 0}
                       onTargetSize={optimizer.setTargetSize}
                     />
                   </div>

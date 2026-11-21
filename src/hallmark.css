@@ -398,8 +398,9 @@ fieldset.setting-block { padding-top: 0; }
 .custom-bitrate-input:disabled { cursor: not-allowed; opacity: 0.55; }
 .output-picker { display: flex; align-items: center; gap: var(--space-sm); width: 100%; min-height: 3.25rem; padding: var(--space-xs) var(--space-sm); border: var(--rule-hair) solid var(--color-rule-2); border-radius: var(--radius-control); background: var(--color-paper); color: var(--color-ink-2); text-align: left; cursor: pointer; transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out),
     color var(--dur-short) var(--ease-out); }
-.output-picker:hover { border-color: var(--color-accent); background: var(--color-paper-2); }
-.output-picker:active { transform: translateY(1px); }
+.output-picker:hover:not(:disabled) { border-color: var(--color-accent); background: var(--color-paper-2); }
+.output-picker:active:not(:disabled) { transform: translateY(1px); }
+.output-picker:disabled { cursor: not-allowed; opacity: 0.55; }
 .output-icon { display: grid; flex: 0 0 auto; place-items: center; color: var(--color-accent); }
 .output-value { display: grid; flex: 1; min-width: 0; gap: var(--space-3xs); }
 .output-value strong { color: var(--color-ink); font-size: var(--text-sm); font-weight: 500; }
