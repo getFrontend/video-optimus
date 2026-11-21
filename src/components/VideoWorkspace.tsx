@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import completedEmptyAnimation from "../assets/completed-empty.gif";
+import completedEmptyStill from "../assets/completed-empty-still.png";
+import processingEmptyAnimation from "../assets/processing-empty.gif";
+import processingEmptyStill from "../assets/processing-empty-still.png";
 import { DropZone } from "./DropZone";
 import { Icon } from "./Icon";
 import { QueueItem } from "./QueueItem";
@@ -11,6 +15,26 @@ import { useOptimizer } from "../hooks/useOptimizer";
 import type { JobStatus, VideoJob } from "../types";
 
 const ACTIVE: JobStatus[] = ["analyzing", "preparing", "encoding", "validating"];
+
+function EmptyStateAnimation({
+  animation,
+  still,
+  className,
+}: {
+  animation: string;
+  still: string;
+  className?: string;
+}) {
+  return (
+    <picture
+      className={`empty-queue-animation${className ? ` ${className}` : ""}`}
+      aria-hidden="true"
+    >
+      <source media="(prefers-reduced-motion: reduce)" srcSet={still} />
+      <img src={animation} alt="" />
+    </picture>
+  );
+}
 
 export function VideoWorkspace({
   optimizer,
@@ -26,6 +50,7 @@ export function VideoWorkspace({
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("add");
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const hasShownAddEntrance = useRef(false);
   const draggedJobRef = useRef<string | null>(null);
   const tabContentRef = useRef<HTMLDivElement>(null);
   const queuePanelRef = useRef<HTMLElement>(null);
@@ -62,6 +87,7 @@ export function VideoWorkspace({
     optimizer.snapshot?.queueRunning ||
     bulk.selectedJobs.length > 0,
   );
+  const animateAddEntrance = !hasShownAddEntrance.current;
 
   const selectTab = useCallback((tab: WorkspaceTab) => {
     setActiveTab(tab);
@@ -69,6 +95,10 @@ export function VideoWorkspace({
       tabContentRef.current?.scrollIntoView({ block: "start" });
     });
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "add") hasShownAddEntrance.current = true;
+  }, [activeTab]);
 
   useEffect(() => {
     if (!hasSnapshot) return;
@@ -215,6 +245,7 @@ export function VideoWorkspace({
         {activeTab === "add" && (
           <div className="add-panel">
             <DropZone
+              animateEntrance={animateAddEntrance}
               available={optimizer.desktop && Boolean(optimizer.snapshot?.runtime.ready)}
               dragging={optimizer.dragging}
               onFiles={optimizer.chooseFiles}
@@ -225,26 +256,32 @@ export function VideoWorkspace({
 
         {activeTab === "processing" && (
           <section className="queue-panel" aria-label="Обробка відео" ref={queuePanelRef}>
-            <div className="queue-heading">
-              <div className="queue-sequence-heading">
-                <Icon name="clock" size={20} />
-                <strong>Послідовна обробка</strong>
-                <span aria-hidden="true">·</span>
-                <span>Одне відео за раз</span>
+            {processingJobs.length > 0 && (
+              <div className="queue-heading">
+                <div className="queue-sequence-heading">
+                  <Icon name="clock" size={20} />
+                  <strong>Послідовна обробка</strong>
+                  <span aria-hidden="true">·</span>
+                  <span>Одне відео за раз</span>
+                </div>
+                <div className="queue-heading-actions">
+                  {activeJob && (
+                    <button className="button button-quiet button-cancel" type="button" onClick={optimizer.cancelCurrent}>
+                      <Icon name="close" size={16} />
+                      Скасувати поточне
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="queue-heading-actions">
-                {activeJob && (
-                  <button className="button button-quiet button-cancel" type="button" onClick={optimizer.cancelCurrent}>
-                    <Icon name="close" size={16} />
-                    Скасувати поточне
-                  </button>
-                )}
-              </div>
-            </div>
+            )}
 
             {processingJobs.length === 0 ? (
               <div className="empty-queue">
-                <Icon name={completedCount > 0 ? "check" : "film"} size={28} />
+                <EmptyStateAnimation
+                  animation={processingEmptyAnimation}
+                  still={processingEmptyStill}
+                  className="empty-queue-animation--processing"
+                />
                 <strong>Немає відео в обробці</strong>
                 <p>Додайте нові відео або перегляньте готові результати.</p>
                 <button
@@ -320,23 +357,26 @@ export function VideoWorkspace({
 
         {activeTab === "completed" && (
           <section className="queue-panel">
-            <div className="queue-heading">
-              <h2>
-                Готові відео
-                {completedCount > 0 && <span className="queue-count">{completedCount}</span>}
-              </h2>
-              {completedCount > 0 && (
+            {completedCount > 0 && (
+              <div className="queue-heading">
+                <h2>
+                  Готові відео
+                  <span className="queue-count">{completedCount}</span>
+                </h2>
                 <button className="button button-quiet" type="button" onClick={optimizer.clearCompleted}>
                   <Icon name="trash" size={16} />
                   Очистити готові
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             {completedCount > 0 ? (
               renderJobs(jobs.filter((job) => job.status === "completed"))
             ) : (
               <div className="empty-queue">
-                <Icon name="film" size={28} />
+                <EmptyStateAnimation
+                  animation={completedEmptyAnimation}
+                  still={completedEmptyStill}
+                />
                 <strong>Готових відео ще немає</strong>
                 <p>Після обробки результати з’являться тут.</p>
                 <button

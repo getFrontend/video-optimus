@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import UseAnimations from "react-useanimations";
 import type { Animation } from "react-useanimations";
 import filePlus from "react-useanimations/lib/filePlus";
@@ -9,11 +9,13 @@ import { useAdaptiveButtonScale } from "../hooks/useAdaptiveButtonScale";
 const FORMATS = ["MP4", "MKV", "MOV", "AVI", "WEBM", "TS"];
 
 export function DropZone({
+  animateEntrance,
   available,
   dragging,
   onFiles,
   onFolder,
 }: {
+  animateEntrance: boolean;
   available: boolean;
   dragging: boolean;
   onFiles: () => void;
@@ -21,6 +23,7 @@ export function DropZone({
 }) {
   const dropZoneRef = useRef<HTMLElement | null>(null);
   const actionsRef = useRef<HTMLDivElement | null>(null);
+  const [shouldAnimateEntrance] = useState(animateEntrance);
   const { button: buttonScale, content: contentScale } = useAdaptiveButtonScale(
     dropZoneRef,
     actionsRef,
@@ -29,7 +32,7 @@ export function DropZone({
   return (
     <section
       ref={dropZoneRef}
-      className={`drop-zone${dragging ? " is-dragging" : ""}`}
+      className={`drop-zone${dragging ? " is-dragging" : ""}${shouldAnimateEntrance ? " is-entering" : ""}`}
       style={{
         "--drop-action-scale": buttonScale,
         "--drop-content-scale": contentScale,
