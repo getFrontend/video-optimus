@@ -42,7 +42,7 @@ The application detects available encoders at runtime, so the selected FFmpeg bu
 
 - File dialogs, folder import with nested directories, and drag and drop.
 - Container and stream analysis with FFprobe.
-- A local queue with persistence, recovery of interrupted jobs, reordering, skipping, cancellation, retry, and cleanup.
+- A local queue with persistence, recovery of interrupted jobs, reordering, temporarily hiding and restoring queued videos, cancellation, retry, and cleanup.
 - Sequential processing with actual FFmpeg progress, speed, and estimated time remaining.
 - H.264, HEVC, and AV1 using individually tested QSV encoders and detected CPU encoders, with encoder-specific options.
 - Smart/Fast/Maximum encoder priorities and speed/compression presets. Smart prefers software HEVC with a slower compression preset when available, then falls back to tested hardware and other available encoders.

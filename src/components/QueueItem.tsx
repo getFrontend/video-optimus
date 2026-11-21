@@ -2,6 +2,7 @@ import { useRef } from "react";
 import UseAnimations from "react-useanimations";
 import checkBox from "react-useanimations/lib/checkBox";
 import deleteIcon from "react-useanimations/lib/delete";
+import visibility2 from "react-useanimations/lib/visibility2";
 import type { AppSettings, VideoJob } from "../types";
 import { formatDuration, formatFrameRate, formatSize, statusLabel } from "../lib/format";
 import { estimateOutputSize } from "../lib/estimate";
@@ -96,8 +97,7 @@ export function QueueItem({
   selectable,
   selected,
   onSelect,
-  onPreview,
-  onSkip,
+  onSetSkipped,
   onOpen,
 }: {
   job: VideoJob;
@@ -115,13 +115,13 @@ export function QueueItem({
   selectable: boolean;
   selected: boolean;
   onSelect: (id: string, selected: boolean) => void;
-  onPreview: (id: string) => void;
-  onSkip: (id: string) => void;
+  onSetSkipped: (id: string, skipped: boolean) => void;
   onOpen: (path: string, reveal?: boolean) => void;
 }) {
   const activePointerId = useRef<number | null>(null);
   const active = activeStatuses.has(job.status);
   const pending = job.status === "pending";
+  const skipped = job.status === "skipped";
   const saved = job.outputSize == null ? 0 : Math.max(0, job.sourceSize - job.outputSize);
   const percentSaved = job.outputSize == null
     ? 0
@@ -132,7 +132,6 @@ export function QueueItem({
   const estimateCustomSettings = pending ? settings.customSettings : job.customSettings;
   const targetSizeBytes = pending ? settings.targetSizeBytes : job.targetSizeBytes;
   const estimate = job.status !== "completed" &&
-    job.status !== "skipped" &&
     targetSizeBytes == null
     ? estimateOutputSize(
       job.sourceSize,
@@ -145,9 +144,7 @@ export function QueueItem({
   const savings = estimate
     ? describeSavings(job.sourceSize, estimate.minBytes, estimate.maxBytes)
     : null;
-  const showTargetSize = targetSizeBytes != null &&
-    job.status !== "completed" &&
-    job.status !== "skipped";
+  const showTargetSize = targetSizeBytes != null && job.status !== "completed";
   const hasEstimate = showTargetSize || estimate != null;
   const estimateBasis = estimate?.basis === "bitrate"
     ? "Оцінка на основі тривалості та бітрейту медіапотоків"
@@ -155,7 +152,7 @@ export function QueueItem({
 
   return (
     <article
-      className={`queue-item${active ? " is-active" : ""}${hasEstimate ? " has-estimate" : ""}${isDragging ? " is-dragging" : ""}${isDropTarget ? " is-drop-target" : ""}`}
+      className={`queue-item${active ? " is-active" : ""}${skipped ? " is-skipped" : ""}${hasEstimate ? " has-estimate" : ""}${isDragging ? " is-dragging" : ""}${isDropTarget ? " is-drop-target" : ""}`}
       data-job-id={job.id}
       data-pending={pending}
     >
@@ -210,6 +207,7 @@ export function QueueItem({
         jobId={job.id}
         fileName={job.fileName}
         codec={job.metadata.codec}
+        skipped={skipped}
         onPlay={() => onOpen(
           job.status === "completed" && job.outputPath ? job.outputPath : job.path,
         )}
@@ -270,8 +268,8 @@ export function QueueItem({
       {showTargetSize ? (
         <aside
           className="queue-estimate"
-          aria-label={`${pending ? "Попередній перегляд. " : ""}Цільовий розмір: ${formatSize(targetSizeBytes)}`}
-          title={pending ? "Попередній перегляд за поточними параметрами; завдання не змінено." : undefined}
+          aria-label={`${pending ? "Оцінка. " : ""}Цільовий розмір: ${formatSize(targetSizeBytes)}`}
+          title={pending ? "Оцінка за поточними параметрами; завдання не змінено." : undefined}
         >
           <span className="queue-estimate-label">Цільовий розмір</span>
           <strong>{formatSize(targetSizeBytes)}</strong>
@@ -280,8 +278,8 @@ export function QueueItem({
       ) : estimate && (
         <aside
           className="queue-estimate"
-          aria-label={`${pending ? "Попередній перегляд. " : ""}Орієнтовний розмір після стиснення: ${formatSize(estimate.minBytes)}–${formatSize(estimate.maxBytes)}. ${savings?.description}`}
-          title={`${pending ? "Попередній перегляд за поточними параметрами; завдання не змінено. " : `${estimateBasis}; `}Фактичний розмір залежить від вмісту. ${savings?.description}`}
+          aria-label={`${pending ? "Оцінка. " : ""}Орієнтовний розмір після стиснення: ${formatSize(estimate.minBytes)}–${formatSize(estimate.maxBytes)}. ${savings?.description}`}
+          title={`${pending ? "Оцінка за поточними параметрами; завдання не змінено. " : `${estimateBasis}; `}Фактичний розмір залежить від вмісту. ${savings?.description}`}
         >
           <div className="queue-estimate-primary">
             <span className="queue-estimate-label">Після стиснення</span>
@@ -305,25 +303,25 @@ export function QueueItem({
       )}
 
       <div className="queue-actions">
-        {!active && !["completed", "skipped"].includes(job.status) && (
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Порівняти фрагменти"
-            title="Попередній перегляд"
-            onClick={() => onPreview(job.id)}
-          >
-            <Icon name="film" size={19} />
-          </button>
-        )}
         {job.status === "completed" && job.outputPath && (
           <button className="icon-button" type="button" aria-label="Показати в теці" title="Показати в теці" onClick={() => onOpen(job.outputPath!, true)}>
             <Icon name="folder" size={20} />
           </button>
         )}
-        {job.status === "pending" && (
-          <button className="icon-button" type="button" aria-label="Пропустити відео" title="Пропустити відео" onClick={() => onSkip(job.id)}>
-            <Icon name="skipForward" size={20} />
+        {(pending || skipped) && (
+          <button
+            className="icon-button queue-visibility-action"
+            type="button"
+            aria-label={skipped ? "Повернути відео в чергу" : "Пропустити відео"}
+            title={skipped ? "Повернути відео в чергу" : "Пропустити відео"}
+            onClick={() => onSetSkipped(job.id, !skipped)}
+          >
+            <UseAnimations
+              animation={visibility2}
+              interaction="click-toggle"
+              active={skipped}
+              size={26}
+            />
           </button>
         )}
         {["failed", "cancelled", "interrupted"].includes(job.status) && (
@@ -353,7 +351,7 @@ export function QueueItem({
             )}
           />
         )}
-        {selectable && (
+        {selectable ? (
           <label className="queue-select">
             <input
               type="checkbox"
@@ -368,7 +366,12 @@ export function QueueItem({
               size={27}
             />
           </label>
-        )}
+        ) : skipped ? (
+          <span
+            className="queue-select queue-select-placeholder"
+            aria-hidden="true"
+          />
+        ) : null}
       </div>
     </article>
   );

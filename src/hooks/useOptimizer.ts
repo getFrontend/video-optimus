@@ -278,8 +278,8 @@ export function useOptimizer() {
     return invoke("remove_video_preview", { previewId, jobId });
   }, []);
 
-  const skipJob = useCallback((id: string) => {
-    void command("skip_job", { id });
+  const setJobSkipped = useCallback((id: string, skipped: boolean) => {
+    void command("set_job_skipped", { id, skipped });
   }, [command]);
 
   const startQueue = useCallback(() => {
@@ -302,8 +302,11 @@ export function useOptimizer() {
     void command("cancel_current");
   }, [command]);
 
-  const cancelPending = useCallback(() => {
-    void command("cancel_pending", undefined, "Очікувані завдання скасовано.");
+  const removeQueuedJobs = useCallback((ids: string[] | null) => {
+    const success = ids?.length
+      ? "Вибрані відео вилучено з черги."
+      : "Усі відео в очікуванні вилучено з черги.";
+    return command("remove_queued_jobs", { ids }, success);
   }, [command]);
 
   const clearCompleted = useCallback(() => {
@@ -336,14 +339,14 @@ export function useOptimizer() {
     startSelectedJobs,
     stopQueue,
     cancelCurrent,
-    cancelPending,
+    removeQueuedJobs,
     clearCompleted,
     reorderJob,
     removeJob,
     retryJob,
     createPreview,
     removePreview,
-    skipJob,
+    setJobSkipped,
     openPath,
   };
 }

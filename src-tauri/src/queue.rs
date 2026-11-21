@@ -1,7 +1,7 @@
 use crate::{
     models::{
         CompressionMode, CustomSettings, EnqueueResult, JobStatus, OutputContainer, QualityProfile,
-        VideoJob,
+        VideoJob, VideoMetadata,
     },
     state::AppState,
 };
@@ -96,16 +96,16 @@ pub async fn enqueue_paths(
                 continue;
             }
         };
-        if matches!(mode, CompressionMode::Custom)
-            && matches!(custom_settings.container, OutputContainer::Mp4)
-            && crate::encoding::requires_matroska(&metadata)
-        {
-            rejected.push(format!(
-                "{}: для збереження вкладень або субтитрів цього типу потрібен MKV. \
-                 Виберіть MKV чи Автоматично.",
-                path.file_name().unwrap_or_default().to_string_lossy()
-            ));
-            continue;
+        if matches!(mode, CompressionMode::Custom) {
+            if let Err(error) =
+                validate_custom_output_container(custom_settings.container, &metadata)
+            {
+                rejected.push(format!(
+                    "{}: {error}",
+                    path.file_name().unwrap_or_default().to_string_lossy()
+                ));
+                continue;
+            }
         }
         let source_size = match tokio::fs::metadata(&path).await {
             Ok(metadata) => metadata.len(),
@@ -159,6 +159,20 @@ pub async fn enqueue_paths(
     drop(inflight);
     state.persist().await?;
     Ok(EnqueueResult { added, rejected })
+}
+
+pub(super) fn validate_custom_output_container(
+    container: OutputContainer,
+    metadata: &VideoMetadata,
+) -> Result<(), String> {
+    if matches!(container, OutputContainer::Mp4) && crate::encoding::requires_matroska(metadata) {
+        return Err(
+            "Для збереження вкладень або субтитрів цього типу потрібен MKV. \
+             Виберіть MKV чи Автоматично."
+                .to_string(),
+        );
+    }
+    Ok(())
 }
 
 pub fn scan_folder(path: &Path) -> Result<Vec<String>, String> {
@@ -316,16 +330,6 @@ pub async fn cancel_current(state: &AppState) -> Result<(), String> {
         }
         None => Err("Наразі немає активного завдання.".to_string()),
     }
-}
-
-pub async fn cancel_pending(state: &AppState) -> Result<(), String> {
-    for job in state.jobs.write().await.iter_mut() {
-        if job.status == JobStatus::Pending {
-            job.status = JobStatus::Cancelled;
-            job.error = Some("Скасовано до початку обробки.".to_string());
-        }
-    }
-    state.persist().await
 }
 
 #[cfg(test)]

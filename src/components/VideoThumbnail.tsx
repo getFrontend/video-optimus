@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
+import UseAnimations from "react-useanimations";
+import visibility2 from "react-useanimations/lib/visibility2";
 import {
   getVideoThumbnail,
   invalidateVideoThumbnail,
@@ -10,11 +12,13 @@ export function VideoThumbnail({
   jobId,
   fileName,
   codec,
+  skipped,
   onPlay,
 }: {
   jobId: string;
   fileName: string;
   codec: string;
+  skipped: boolean;
   onPlay: () => void;
 }) {
   const containerRef = useRef<HTMLButtonElement>(null);
@@ -52,11 +56,15 @@ export function VideoThumbnail({
 
   return (
     <button
-      className={`file-mark thumbnail-button codec-${codec}`}
+      className={`file-mark thumbnail-button codec-${codec}${skipped ? " is-skipped" : ""}`}
       type="button"
-      aria-label={`Відтворити відео: ${fileName}`}
-      title={`Відтворити відео: ${fileName}`}
-      disabled={!isTauri()}
+      aria-label={skipped
+        ? `Відео пропущено: ${fileName}. Поверніть його в чергу, щоб відтворити.`
+        : `Відтворити відео: ${fileName}`}
+      title={skipped
+        ? "Поверніть відео в чергу, щоб відтворити."
+        : `Відтворити відео: ${fileName}`}
+      disabled={!isTauri() || skipped}
       onClick={onPlay}
       ref={containerRef}
     >
@@ -76,6 +84,16 @@ export function VideoThumbnail({
       <span className="thumbnail-play-badge">
         <Icon name="play" size={14} />
       </span>
+      {skipped && (
+        <span className="thumbnail-skip-overlay" aria-hidden="true">
+          <UseAnimations
+            animation={visibility2}
+            interaction="click-toggle"
+            active
+            size={42}
+          />
+        </span>
+      )}
     </button>
   );
 }

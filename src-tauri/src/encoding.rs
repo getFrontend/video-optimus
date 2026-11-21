@@ -388,8 +388,8 @@ fn svt_quality(quality: &QualityProfile) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        encoding_args, output_extension, qsv_quality, requires_matroska, select_encoder,
-        software_quality, svt_quality, target_video_bitrate, EncodingPlan,
+        encoder_preset, encoding_args, output_extension, qsv_quality, requires_matroska,
+        select_encoder, software_quality, svt_quality, target_video_bitrate, EncodingPlan,
     };
     use crate::{
         media::MediaTools,
@@ -470,6 +470,26 @@ mod tests {
     }
 
     #[test]
+    fn quality_profiles_apply_increasing_compression_strength() {
+        let profiles = [
+            QualityProfile::NearOriginal,
+            QualityProfile::High,
+            QualityProfile::Balanced,
+            QualityProfile::Compact,
+        ];
+        let values = [
+            profiles.map(|profile| software_quality("libx264", &profile)),
+            profiles.map(|profile| software_quality("libx265", &profile)),
+            profiles.map(|profile| qsv_quality(&profile)),
+            profiles.map(|profile| svt_quality(&profile)),
+        ];
+
+        for codec_values in values {
+            assert!(codec_values.windows(2).all(|pair| pair[0] < pair[1]));
+        }
+    }
+
+    #[test]
     fn encoder_selection_uses_per_encoder_qsv_test_results() {
         let tools = tools(&[
             ("hevc_qsv", false, true),
@@ -542,6 +562,37 @@ mod tests {
         let qsv = select_encoder(&custom, &tools).unwrap();
         assert_eq!(qsv.name, "h264_qsv");
         assert_eq!(qsv.software_fallback.as_deref(), Some("libx264"));
+    }
+
+    #[test]
+    fn custom_codec_and_device_matrix_selects_the_requested_encoder() {
+        let tools = tools(&[
+            ("h264_qsv", true, true),
+            ("libx264", true, false),
+            ("hevc_qsv", true, true),
+            ("libx265", true, false),
+            ("av1_qsv", true, true),
+            ("libsvtav1", true, false),
+        ]);
+        let codecs = [
+            (CustomVideoCodec::H264, "libx264", "h264_qsv"),
+            (CustomVideoCodec::Hevc, "libx265", "hevc_qsv"),
+            (CustomVideoCodec::Av1, "libsvtav1", "av1_qsv"),
+        ];
+
+        for (codec, cpu_encoder, qsv_encoder) in codecs {
+            let mut custom = job(CompressionMode::Custom, 0);
+            custom.custom_settings.codec = codec;
+
+            custom.custom_settings.device = CustomDevice::Cpu;
+            assert_eq!(select_encoder(&custom, &tools).unwrap().name, cpu_encoder);
+
+            custom.custom_settings.device = CustomDevice::Qsv;
+            assert_eq!(select_encoder(&custom, &tools).unwrap().name, qsv_encoder);
+
+            custom.custom_settings.device = CustomDevice::Auto;
+            assert_eq!(select_encoder(&custom, &tools).unwrap().name, qsv_encoder);
+        }
     }
 
     #[test]
@@ -664,6 +715,55 @@ mod tests {
     }
 
     #[test]
+    fn custom_presets_map_to_each_encoder_familys_speed_scale() {
+        let cases = [
+            (CustomPreset::Fast, "veryfast", "fast", "10"),
+            (CustomPreset::Balanced, "medium", "medium", "8"),
+            (CustomPreset::Quality, "slow", "slow", "6"),
+        ];
+
+        for (preset, cpu, qsv, av1) in cases {
+            let mut custom = job(CompressionMode::Custom, 0);
+            custom.custom_settings.preset = preset;
+            assert_eq!(encoder_preset(&custom, "libx264"), cpu);
+            assert_eq!(encoder_preset(&custom, "libx265"), cpu);
+            assert_eq!(encoder_preset(&custom, "h264_qsv"), qsv);
+            assert_eq!(encoder_preset(&custom, "hevc_qsv"), qsv);
+            assert_eq!(encoder_preset(&custom, "libsvtav1"), av1);
+        }
+    }
+
+    #[test]
+    fn custom_manual_video_bitrate_replaces_quality_based_rate_control() {
+        let mut custom = job(CompressionMode::Custom, 0);
+        custom.custom_settings.video_bitrate_kbps = Some(2_500);
+        let options = ["b".to_string(), "preset".to_string(), "crf".to_string()];
+        let args = encoding_args(
+            &custom,
+            EncodingPlan {
+                encoder: "libx265",
+                supported_options: &options,
+                target_video_bitrate: target_video_bitrate(&custom).unwrap(),
+                pass: None,
+                pass_logfile: None,
+                audio_codec: "copy",
+                include_audio: true,
+                start_seconds: None,
+                duration_seconds: None,
+                temporary: Path::new("output.mkv"),
+            },
+        );
+
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "-b:v" && pair[1] == "2500000"));
+        assert!(!args.iter().any(|argument| argument == "-crf"));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "-c:a" && pair[1] == "copy"));
+    }
+
+    #[test]
     fn subtitle_streams_are_copied_and_skip_mp4_only_options() {
         let options = ["crf".to_string(), "preset".to_string()];
         let args = encoding_args(
@@ -747,6 +847,23 @@ mod tests {
         job.custom_settings.video_bitrate_kbps = Some(2_500);
 
         assert_eq!(target_video_bitrate(&job).unwrap(), Some(2_500_000));
+    }
+
+    #[test]
+    fn custom_target_size_takes_precedence_over_manual_video_bitrate() {
+        let mut job = job(CompressionMode::Custom, 0);
+        job.custom_settings.video_bitrate_kbps = Some(2_500);
+        job.target_size_bytes = Some(10_000_000);
+        job.metadata.audio_tracks = 1;
+        job.metadata.audio_streams = vec![AudioStreamInfo {
+            bitrate: Some(128_000),
+            ..Default::default()
+        }];
+
+        let target_bitrate = target_video_bitrate(&job).unwrap().unwrap();
+
+        assert!(target_bitrate < 2_500_000);
+        assert!(target_bitrate > 1_000_000);
     }
 
     #[test]

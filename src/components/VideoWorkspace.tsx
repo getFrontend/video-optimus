@@ -7,10 +7,8 @@ import { DropZone } from "./DropZone";
 import { Icon } from "./Icon";
 import { QueueItem } from "./QueueItem";
 import { QueueBulkToolbar } from "./QueueBulkToolbar";
-import { PreviewComparator } from "./PreviewComparator";
 import { WorkspaceTabs, type WorkspaceTab } from "./WorkspaceTabs";
 import { SELECTABLE_STATUSES, useBulkQueueSelection } from "../hooks/useBulkQueueSelection";
-import { usePreviewComparison } from "../hooks/usePreviewComparison";
 import { useOptimizer } from "../hooks/useOptimizer";
 import type { JobStatus, VideoJob } from "../types";
 
@@ -58,17 +56,18 @@ export function VideoWorkspace({
   const previousJobIds = useRef<Set<string> | null>(null);
   const previousAllCompleted = useRef<boolean | null>(null);
   const hasSnapshot = optimizer.snapshot !== null;
-  const preview = usePreviewComparison(
-    jobs,
-    optimizer.createPreview,
-    optimizer.removePreview,
-  );
   const activeJob = jobs.find((job) => ACTIVE.includes(job.status));
   const processingJobs = jobs.filter((job) => job.status !== "completed");
   const activeJobs = jobs.filter((job) => ACTIVE.includes(job.status));
   const pendingJobs = jobs.filter((job) => job.status === "pending");
+  const queuedJobs = jobs.filter(
+    (job) => job.status === "pending" || job.status === "skipped",
+  );
   const attentionJobs = processingJobs.filter(
-    (job) => job.status !== "pending" && !ACTIVE.includes(job.status),
+    (job) =>
+      job.status !== "pending" &&
+      job.status !== "skipped" &&
+      !ACTIVE.includes(job.status),
   );
   const bulk = useBulkQueueSelection(jobs, optimizer.startSelectedJobs);
   const selectedPendingCount = bulk.selectedJobs.filter((job) => job.status === "pending").length;
@@ -80,7 +79,7 @@ export function VideoWorkspace({
     let position = 0;
     return new Map(jobs.filter((job) => job.status === "pending").map((job) => [job.id, position++]));
   }, [jobs]);
-  const pendingOrder = pendingJobs.map((job) => job.id).join("\0");
+  const pendingOrder = queuedJobs.map((job) => job.id).join("\0");
   const queueActionReady = Boolean(
     pendingCount > 0 ||
     optimizer.snapshot?.queuePaused ||
@@ -212,8 +211,7 @@ export function VideoWorkspace({
           }
           selected={bulk.selectedIds.has(job.id)}
           onSelect={bulk.selectJob}
-          onPreview={preview.open}
-          onSkip={optimizer.skipJob}
+          onSetSkipped={optimizer.setJobSkipped}
           onOpen={optimizer.openPath}
         />
       ))}
@@ -300,9 +298,9 @@ export function VideoWorkspace({
                     {renderJobs(activeJobs)}
                   </section>
                 )}
-                {pendingJobs.length > 0 && (
+                {queuedJobs.length > 0 && (
                   <section className="queue-group" aria-label="Відео, що очікують обробки">
-                    {renderJobs(pendingJobs)}
+                    {renderJobs(queuedJobs)}
                   </section>
                 )}
                 {attentionJobs.length > 0 && (
@@ -314,10 +312,23 @@ export function VideoWorkspace({
                 {queueActionReady && (
                   <footer className="queue-footer">
                     <div className="queue-footer-actions">
-                      {pendingCount > 0 && (
-                        <button className="button button-cancel-pending" type="button" onClick={optimizer.cancelPending}>
+                      {(pendingCount > 0 || bulk.selectedJobs.length > 0) && (
+                        <button
+                          className="button button-cancel-pending"
+                          type="button"
+                          aria-label={bulk.selectedJobs.length > 0
+                            ? "Вилучити вибрані відео з черги"
+                            : "Вилучити всі відео в очікуванні"}
+                          onClick={async () => {
+                            const selectedIds = bulk.selectedJobs.map((job) => job.id);
+                            const removed = await optimizer.removeQueuedJobs(
+                              selectedIds.length > 0 ? selectedIds : null,
+                            );
+                            if (removed) bulk.clear();
+                          }}
+                        >
                           <Icon name="queueRemove" size={17} />
-                          Скасувати очікування
+                          {bulk.selectedJobs.length > 0 ? "Скасувати обрані" : "Скасувати всі"}
                         </button>
                       )}
                       <button
@@ -391,15 +402,6 @@ export function VideoWorkspace({
           </section>
         )}
       </div>
-      {preview.job && (
-        <PreviewComparator
-          job={preview.job}
-          preview={preview.result}
-          loading={preview.loading}
-          error={preview.error}
-          onClose={preview.close}
-        />
-      )}
     </div>
   );
 }

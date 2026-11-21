@@ -35,7 +35,11 @@ const CONTAINERS: readonly SettingsSelectOption<OutputContainer>[] = [
 ];
 
 const AUDIO_CODECS: readonly SettingsSelectOption<CustomAudioCodec>[] = [
-  { id: "copy", title: "Як в оригіналі", hint: "Без повторного кодування аудіо" },
+  {
+    id: "copy",
+    title: "Як в оригіналі",
+    hint: "Без повторного кодування; несумісний потік може бути переведений в AAC",
+  },
   { id: "aac", title: "AAC", hint: "Сумісний формат із вибраним бітрейтом" },
 ];
 
@@ -88,7 +92,7 @@ export function CustomSettingsPanel({
     {
       id: "qsv",
       title: "Intel QSV",
-      hint: codec.qsvEncoder,
+      hint: `${codec.qsvEncoder}; перехід на CPU, якщо QSV не запуститься`,
       disabled: capabilitiesKnown && !qsvAvailable,
     },
   ];
@@ -250,10 +254,10 @@ export function CustomSettingsPanel({
         />
         <p className="custom-settings-note" id={`${id}-video-bitrate-note`}>
           {targetSizeBytes != null
-            ? "Цільовий розмір має пріоритет над ручним бітрейтом."
+            ? "Цільовий розмір має пріоритет над ручним бітрейтом і профілем якості."
             : settings.videoBitrateKbps == null
               ? "Порожнє поле використовує профіль якості; прогноз враховує кодек, пристрій, пресет і аудіо."
-              : "Ручний бітрейт задає розмір відео; кодек і пресет переважно впливають на якість та швидкість."}
+              : "Ручний бітрейт задає середній бітрейт відео й орієнтовний розмір, має пріоритет над профілем; кодек і пресет впливають на якість та швидкість."}
         </p>
       </div>
 

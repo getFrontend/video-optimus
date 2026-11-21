@@ -193,13 +193,6 @@ pub async fn cancel_current(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn cancel_pending(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    queue::cancel_pending(&state).await?;
-    state.snapshot(&app).await;
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn move_job(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -235,12 +228,13 @@ pub async fn retry_job(
 }
 
 #[tauri::command]
-pub async fn skip_job(
+pub async fn set_job_skipped(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
+    skipped: bool,
 ) -> Result<(), String> {
-    queue::skip_job(&state, &id).await?;
+    queue::set_job_skipped(&state, &id, skipped).await?;
     state.snapshot(&app).await;
     Ok(())
 }
@@ -254,6 +248,17 @@ pub async fn remove_job(
     queue::remove_job(&state, &id).await?;
     state.snapshot(&app).await;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn remove_queued_jobs(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ids: Option<Vec<String>>,
+) -> Result<usize, String> {
+    let removed = queue::remove_queued_jobs(&state, ids.as_deref()).await?;
+    state.snapshot(&app).await;
+    Ok(removed)
 }
 
 #[tauri::command]

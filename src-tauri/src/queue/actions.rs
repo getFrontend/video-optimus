@@ -2,6 +2,7 @@ use crate::{
     models::{AppSettings, JobStatus, VideoJob},
     state::AppState,
 };
+use std::collections::HashSet;
 
 pub async fn move_job(state: &AppState, id: &str, direction: i32) -> Result<(), String> {
     let mut jobs = state.jobs.write().await;
@@ -76,6 +77,7 @@ pub async fn retry_job(state: &AppState, id: &str) -> Result<(), String> {
         .iter_mut()
         .find(|job| job.id == id)
         .ok_or_else(|| "Завдання не знайдено.".to_string())?;
+    validate_settings_for_job(job, &settings)?;
     if !reset_for_retry(job) {
         return Err("Повторити можна лише перерване або невдале завдання.".to_string());
     }
@@ -89,7 +91,7 @@ pub async fn apply_settings_to_all_pending_jobs(
     settings: &AppSettings,
 ) -> Result<usize, String> {
     let mut jobs = state.jobs.write().await;
-    let previous_jobs = apply_settings_to_jobs(&mut jobs, settings);
+    let previous_jobs = apply_settings_to_jobs_checked(&mut jobs, settings)?;
     let count = previous_jobs.len();
     drop(jobs);
 
@@ -139,6 +141,31 @@ fn apply_settings_to_jobs(jobs: &mut [VideoJob], settings: &AppSettings) -> Vec<
     previous_jobs
 }
 
+fn apply_settings_to_jobs_checked(
+    jobs: &mut [VideoJob],
+    settings: &AppSettings,
+) -> Result<Vec<VideoJob>, String> {
+    validate_settings_for_pending_jobs(jobs, settings)?;
+    Ok(apply_settings_to_jobs(jobs, settings))
+}
+
+fn validate_settings_for_pending_jobs(
+    jobs: &[VideoJob],
+    settings: &AppSettings,
+) -> Result<(), String> {
+    for job in jobs.iter().filter(|job| job.status == JobStatus::Pending) {
+        validate_settings_for_job(job, settings)?;
+    }
+    Ok(())
+}
+
+fn validate_settings_for_job(job: &VideoJob, settings: &AppSettings) -> Result<(), String> {
+    if matches!(settings.mode, crate::models::CompressionMode::Custom) {
+        super::validate_custom_output_container(settings.custom_settings.container, &job.metadata)?;
+    }
+    Ok(())
+}
+
 pub(super) fn apply_settings_to_job(job: &mut VideoJob, settings: &AppSettings) {
     job.mode = settings.mode;
     job.quality = settings.quality;
@@ -147,18 +174,29 @@ pub(super) fn apply_settings_to_job(job: &mut VideoJob, settings: &AppSettings) 
     job.custom_settings = settings.custom_settings;
 }
 
-pub async fn skip_job(state: &AppState, id: &str) -> Result<(), String> {
+fn set_job_skipped_status(job: &mut VideoJob, skipped: bool) -> Result<bool, String> {
+    match (job.status, skipped) {
+        (JobStatus::Pending, true) => job.status = JobStatus::Skipped,
+        (JobStatus::Skipped, false) => job.status = JobStatus::Pending,
+        (JobStatus::Skipped, true) | (JobStatus::Pending, false) => return Ok(false),
+        (_, true) => return Err("Пропустити можна лише завдання в очікуванні.".to_string()),
+        (_, false) => return Err("Повернути можна лише пропущене завдання.".to_string()),
+    }
+    Ok(true)
+}
+
+pub async fn set_job_skipped(state: &AppState, id: &str, skipped: bool) -> Result<(), String> {
     let mut jobs = state.jobs.write().await;
     let job = jobs
         .iter_mut()
         .find(|job| job.id == id)
         .ok_or_else(|| "Завдання не знайдено.".to_string())?;
-    if job.status != JobStatus::Pending {
-        return Err("Пропустити можна лише завдання в очікуванні.".to_string());
-    }
-    job.status = JobStatus::Skipped;
+    let changed = set_job_skipped_status(job, skipped)?;
     drop(jobs);
-    state.persist().await
+    if changed {
+        state.persist().await?;
+    }
+    Ok(())
 }
 
 pub async fn remove_job(state: &AppState, id: &str) -> Result<(), String> {
@@ -167,10 +205,7 @@ pub async fn remove_job(state: &AppState, id: &str) -> Result<(), String> {
         .iter()
         .position(|job| job.id == id)
         .ok_or_else(|| "Завдання не знайдено.".to_string())?;
-    if matches!(
-        jobs[index].status,
-        JobStatus::Analyzing | JobStatus::Preparing | JobStatus::Encoding | JobStatus::Validating
-    ) {
+    if is_active_status(&jobs[index].status) {
         return Err("Спочатку скасуйте активне завдання.".to_string());
     }
     jobs.remove(index);
@@ -178,23 +213,72 @@ pub async fn remove_job(state: &AppState, id: &str) -> Result<(), String> {
     state.persist().await
 }
 
+pub async fn remove_queued_jobs(state: &AppState, ids: Option<&[String]>) -> Result<usize, String> {
+    let mut jobs = state.jobs.write().await;
+    let removed = match ids.filter(|ids| !ids.is_empty()) {
+        Some(ids) => remove_selected_jobs(&mut jobs, ids)?,
+        None => remove_all_pending_jobs(&mut jobs),
+    };
+    drop(jobs);
+
+    if removed > 0 {
+        state.persist().await?;
+    }
+    Ok(removed)
+}
+
+fn is_active_status(status: &JobStatus) -> bool {
+    matches!(
+        status,
+        JobStatus::Analyzing | JobStatus::Preparing | JobStatus::Encoding | JobStatus::Validating
+    )
+}
+
+fn is_selectable_queue_status(status: &JobStatus) -> bool {
+    matches!(
+        status,
+        JobStatus::Pending | JobStatus::Failed | JobStatus::Cancelled | JobStatus::Interrupted
+    )
+}
+
+fn remove_all_pending_jobs(jobs: &mut Vec<VideoJob>) -> usize {
+    let original_len = jobs.len();
+    jobs.retain(|job| job.status != JobStatus::Pending);
+    original_len - jobs.len()
+}
+
+fn remove_selected_jobs(jobs: &mut Vec<VideoJob>, ids: &[String]) -> Result<usize, String> {
+    let selected_ids: HashSet<&str> = ids.iter().map(String::as_str).collect();
+    if jobs.iter().any(|job| {
+        selected_ids.contains(job.id.as_str()) && !is_selectable_queue_status(&job.status)
+    }) {
+        return Err("Активне або завершене відео не можна вилучити цією дією.".to_string());
+    }
+
+    let original_len = jobs.len();
+    jobs.retain(|job| !selected_ids.contains(job.id.as_str()));
+    Ok(original_len - jobs.len())
+}
+
 pub async fn clear_completed(state: &AppState) -> Result<(), String> {
     state
         .jobs
         .write()
         .await
-        .retain(|job| !matches!(job.status, JobStatus::Completed | JobStatus::Skipped));
+        .retain(|job| job.status != JobStatus::Completed);
     state.persist().await
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_settings_to_job, apply_settings_to_jobs, reorder_pending_jobs, reset_for_retry,
+        apply_settings_to_job, apply_settings_to_jobs, apply_settings_to_jobs_checked,
+        remove_all_pending_jobs, remove_selected_jobs, reorder_pending_jobs, reset_for_retry,
+        set_job_skipped_status, validate_settings_for_job, validate_settings_for_pending_jobs,
     };
     use crate::models::{
         AppSettings, CompressionMode, CustomDevice, CustomSettings, CustomVideoCodec, JobStatus,
-        QualityProfile, VideoJob, VideoMetadata,
+        OutputContainer, QualityProfile, VideoJob, VideoMetadata,
     };
 
     fn job(id: &str, status: JobStatus) -> VideoJob {
@@ -254,6 +338,26 @@ mod tests {
     }
 
     #[test]
+    fn skipping_and_restoring_keeps_the_job_in_its_queue_position() {
+        let mut jobs = [
+            job("before", JobStatus::Pending),
+            job("target", JobStatus::Pending),
+            job("after", JobStatus::Pending),
+        ];
+
+        assert!(set_job_skipped_status(&mut jobs[1], true).unwrap());
+        assert_eq!(jobs[1].status, JobStatus::Skipped);
+        assert_eq!(
+            jobs.iter().map(|job| job.id.as_str()).collect::<Vec<_>>(),
+            ["before", "target", "after"],
+        );
+
+        assert!(set_job_skipped_status(&mut jobs[1], false).unwrap());
+        assert_eq!(jobs[1].status, JobStatus::Pending);
+        assert!(!set_job_skipped_status(&mut jobs[1], false).unwrap());
+    }
+
+    #[test]
     fn automatic_settings_update_changes_all_pending_jobs_only() {
         let mut jobs = vec![
             job("pending", JobStatus::Pending),
@@ -286,6 +390,54 @@ mod tests {
     }
 
     #[test]
+    fn rejects_incompatible_mp4_settings_for_queued_jobs_before_applying_them() {
+        let mut incompatible = job("with-attachments", JobStatus::Pending);
+        incompatible.metadata.attachment_streams = 1;
+        let mut jobs = vec![incompatible.clone(), job("compatible", JobStatus::Pending)];
+        let settings = AppSettings {
+            mode: CompressionMode::Custom,
+            custom_settings: CustomSettings {
+                container: OutputContainer::Mp4,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        assert!(apply_settings_to_jobs_checked(&mut jobs, &settings).is_err());
+        assert!(matches!(jobs[0].mode, CompressionMode::Smart));
+        assert!(matches!(jobs[1].mode, CompressionMode::Smart));
+    }
+
+    #[test]
+    fn accepts_automatic_container_for_queued_jobs_with_attachments() {
+        let mut job = job("with-attachments", JobStatus::Pending);
+        job.metadata.attachment_streams = 1;
+        let settings = AppSettings {
+            mode: CompressionMode::Custom,
+            ..Default::default()
+        };
+
+        assert!(validate_settings_for_pending_jobs(&[job], &settings).is_ok());
+    }
+
+    #[test]
+    fn retry_rejects_settings_that_cannot_preserve_source_streams() {
+        let mut job = job("with-attachments", JobStatus::Failed);
+        job.metadata.attachment_streams = 1;
+        let settings = AppSettings {
+            mode: CompressionMode::Custom,
+            custom_settings: CustomSettings {
+                container: OutputContainer::Mp4,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        assert!(validate_settings_for_job(&job, &settings).is_err());
+        assert_eq!(job.status, JobStatus::Failed);
+    }
+
+    #[test]
     fn retry_reinitializes_retryable_job_state() {
         let mut failed = job("failed", JobStatus::Failed);
         failed.progress = 0.8;
@@ -302,5 +454,52 @@ mod tests {
         assert_eq!(failed.progress, 0.0);
         assert!(failed.output_path.is_none());
         assert!(matches!(failed.mode, CompressionMode::Maximum));
+    }
+
+    #[test]
+    fn removes_all_pending_jobs_without_touching_other_statuses() {
+        let mut jobs = vec![
+            job("pending", JobStatus::Pending),
+            job("failed", JobStatus::Failed),
+            job("active", JobStatus::Encoding),
+        ];
+
+        assert_eq!(remove_all_pending_jobs(&mut jobs), 1);
+        assert_eq!(
+            jobs.iter().map(|job| job.id.as_str()).collect::<Vec<_>>(),
+            ["failed", "active"],
+        );
+    }
+
+    #[test]
+    fn removes_only_selected_removable_jobs() {
+        let mut jobs = vec![
+            job("pending", JobStatus::Pending),
+            job("failed", JobStatus::Failed),
+            job("other", JobStatus::Pending),
+        ];
+
+        assert_eq!(
+            remove_selected_jobs(&mut jobs, &["failed".to_string(), "other".to_string()]).unwrap(),
+            2,
+        );
+        assert_eq!(
+            jobs.iter().map(|job| job.id.as_str()).collect::<Vec<_>>(),
+            ["pending"],
+        );
+    }
+
+    #[test]
+    fn selected_removal_rejects_active_jobs_without_partial_changes() {
+        let mut jobs = vec![
+            job("pending", JobStatus::Pending),
+            job("active", JobStatus::Encoding),
+        ];
+
+        assert!(
+            remove_selected_jobs(&mut jobs, &["pending".to_string(), "active".to_string()])
+                .is_err()
+        );
+        assert_eq!(jobs.len(), 2);
     }
 }

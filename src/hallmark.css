@@ -187,6 +187,7 @@
 .queue-item.is-active { border-bottom-color: var(--color-accent); }
 .queue-item:last-child { border-bottom: 0; }
 .queue-item.is-dragging { opacity: 0.42; }
+.queue-item.is-skipped { opacity: 0.46; }
 .queue-item.is-drop-target { border-top: 2px solid var(--color-accent); background: color-mix(in oklab, var(--color-accent-soft) 42%, transparent); }
 .queue-grip { display: grid; place-items: center; width: 2rem; height: 2.5rem; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-muted); cursor: grab; touch-action: none; }
 .queue-grip:hover:not(:disabled) { background: var(--color-paper-2); color: var(--color-accent); }
@@ -199,6 +200,8 @@
 .thumbnail-button:disabled { cursor: default; }
 .thumbnail-play-badge { position: absolute; right: 3px; bottom: 3px; display: grid; place-items: center; width: 1.125rem; height: 1.125rem; border: 1px solid color-mix(in oklab, white 64%, transparent); border-radius: var(--radius-pill); background: rgb(24 23 32 / 78%); color: white; box-shadow: 0 1px 3px rgb(0 0 0 / 24%); transition: transform var(--dur-micro) var(--ease-out); }
 .thumbnail-button:hover:not(:disabled) .thumbnail-play-badge { transform: scale(1.08); }
+.thumbnail-button.is-skipped .thumbnail-play-badge { opacity: 0; }
+.thumbnail-skip-overlay { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center; background: rgb(15 14 22 / 48%); color: white; pointer-events: none; }
 .queue-thumbnail { display: block; width: 100%; height: 100%; object-fit: cover; animation: queue-thumbnail-appear 180ms var(--ease-out) both; }
 @keyframes queue-thumbnail-appear { from { opacity: 0; } to { opacity: 1; } }
 .queue-main { min-width: 0; }
@@ -259,6 +262,7 @@
 .job-log-link { width: fit-content; margin-top: var(--space-2xs); padding: 0; border: 0; background: transparent; color: var(--color-accent); font: inherit; font-size: var(--text-xs); text-align: left; text-decoration: underline; text-underline-offset: 0.15em; cursor: pointer; }
 .queue-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-xs); }
 .queue-select { position: relative; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; cursor: pointer; }
+.queue-select-placeholder { cursor: default; }
 .queue-select input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; padding: 0; appearance: none; opacity: 0.001; cursor: pointer; border: 0; }
 .queue-select:has(input:focus-visible) { outline: 2px solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-control); }
 .queue-select [data-useanimations] { pointer-events: none; }
@@ -278,7 +282,7 @@
 .empty-queue p { max-width: 42ch; color: var(--color-ink-2); font-size: var(--text-sm); line-height: 1.5; }
 .queue-footer { position: sticky; bottom: 0; z-index: var(--z-raised); display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg); margin-top: auto; padding: var(--space-md) var(--space-lg); border: 1px solid color-mix(in oklab, white 68%, var(--color-accent) 20%); border-bottom: 0; border-radius: 1rem 1rem 0 0; background: linear-gradient(110deg, color-mix(in oklab, white 22%, transparent), color-mix(in oklab, var(--color-accent-soft) 20%, transparent)), color-mix(in oklab, var(--color-paper) 74%, transparent); box-shadow: 0 -10px 32px -24px color-mix(in oklab, var(--color-accent) 38%, transparent), inset 0 1px 0 color-mix(in oklab, white 82%, transparent), inset 0 0 20px color-mix(in oklab, white 12%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2); }
 .queue-footer-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); width: 100%; }
-.queue-run-button { min-height: 3rem; padding-inline: var(--space-xl); box-shadow: 0 5px 16px -11px color-mix(in oklab, var(--color-accent) 76%, transparent); }
+.queue-run-button { width: 18rem; min-height: 3rem; padding-inline: var(--space-xl); box-shadow: 0 5px 16px -11px color-mix(in oklab, var(--color-accent) 76%, transparent); }
 .queue-footer .queue-run-button { margin-left: auto; }
 .settings-open .page-content { padding-right: calc(var(--gutter) + var(--settings-drawer-width)); transition: padding-right var(--dur-long) var(--ease-out); }
 .settings-drawer { position: fixed; top: 2.25rem; right: 0; bottom: 0; z-index: var(--z-sticky); display: flex; flex-direction: column; width: min(var(--settings-drawer-width), calc(100vw - var(--space-lg))); overflow: visible; padding: 0; border-left: var(--rule-hair) solid var(--color-rule); background: var(--color-paper); box-shadow: -18px 0 40px -32px color-mix(in oklab, var(--color-ink) 32%, transparent); opacity: 0; transform: translateX(100%); visibility: hidden; transition: transform var(--dur-long) var(--ease-out), opacity var(--dur-short) var(--ease-out), visibility 0s linear var(--dur-long); }
