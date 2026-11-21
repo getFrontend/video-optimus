@@ -51,12 +51,12 @@ pub(crate) fn select_encoder(job: &VideoJob, tools: &MediaTools) -> Option<Encod
             ("libsvtav1", None),
         ],
         CompressionMode::Smart => vec![
-            ("hevc_qsv", Some("libx265")),
-            ("av1_qsv", Some("libsvtav1")),
-            ("h264_qsv", Some("libx264")),
             ("libx265", None),
-            ("libx264", None),
+            ("hevc_qsv", Some("libx265")),
             ("libsvtav1", None),
+            ("av1_qsv", Some("libsvtav1")),
+            ("libx264", None),
+            ("h264_qsv", Some("libx264")),
         ],
     };
     candidates
@@ -329,9 +329,11 @@ fn encoder_preset(job: &VideoJob, encoder: &str) -> &'static str {
         (_, name) if name.ends_with("_qsv") => "medium",
         (CompressionMode::Fast, "libsvtav1") => "10",
         (CompressionMode::Maximum, "libsvtav1") => "6",
+        (CompressionMode::Smart, "libsvtav1") => "6",
         (_, "libsvtav1") => "8",
         (CompressionMode::Fast, _) => "veryfast",
         (CompressionMode::Maximum, _) => "slow",
+        (CompressionMode::Smart, "libx265") => "slow",
         (CompressionMode::Smart | CompressionMode::Custom, _) => "medium",
     }
 }
@@ -365,7 +367,7 @@ fn software_quality(encoder: &str, quality: &QualityProfile) -> u8 {
     match (encoder, quality) {
         ("libx265", QualityProfile::NearOriginal) => 19,
         ("libx265", QualityProfile::High) => 21,
-        ("libx265", QualityProfile::Balanced) => 24,
+        ("libx265", QualityProfile::Balanced) => 22,
         ("libx265", QualityProfile::Compact) => 27,
         (_, QualityProfile::NearOriginal) => 17,
         (_, QualityProfile::High) => 19,
@@ -472,11 +474,25 @@ mod tests {
         let tools = tools(&[
             ("hevc_qsv", false, true),
             ("av1_qsv", true, true),
-            ("libsvtav1", true, false),
+            ("libsvtav1", false, false),
         ]);
         let choice = select_encoder(&job(CompressionMode::Smart, 0), &tools).unwrap();
 
         assert_eq!(choice.name, "av1_qsv");
+    }
+
+    #[test]
+    fn smart_prefers_quality_efficient_cpu_encoders_when_available() {
+        let tools = tools(&[
+            ("hevc_qsv", true, true),
+            ("libx265", true, false),
+            ("libsvtav1", true, false),
+        ]);
+
+        let choice = select_encoder(&job(CompressionMode::Smart, 0), &tools).unwrap();
+
+        assert_eq!(choice.name, "libx265");
+        assert_eq!(choice.software_fallback, None);
     }
 
     #[test]
@@ -587,6 +603,33 @@ mod tests {
             .windows(2)
             .any(|pair| pair[0] == "-global_quality" && pair[1] == "24"));
         assert!(!args.iter().any(|arg| arg == "-crf"));
+    }
+
+    #[test]
+    fn smart_uses_conservative_hevc_quality_and_efficiency_preset() {
+        let options = ["crf".to_string(), "preset".to_string()];
+        let args = encoding_args(
+            &job(CompressionMode::Smart, 0),
+            EncodingPlan {
+                encoder: "libx265",
+                supported_options: &options,
+                target_video_bitrate: None,
+                pass: None,
+                pass_logfile: None,
+                audio_codec: "copy",
+                include_audio: true,
+                start_seconds: None,
+                duration_seconds: None,
+                temporary: Path::new("output.mp4"),
+            },
+        );
+
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "-crf" && pair[1] == "22"));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "-preset" && pair[1] == "slow"));
     }
 
     #[test]

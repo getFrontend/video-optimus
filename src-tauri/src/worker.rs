@@ -202,8 +202,11 @@ pub async fn run_queue(app: AppHandle, state: AppState, selected_job_ids: Option
                             current.output_path = Some(output.to_string_lossy().into_owned());
                             current.output_size = Some(size);
                             current.elapsed_seconds = Some(started.elapsed().as_secs_f64());
-                            current.result_warning =
-                                target_size_warning(job.target_size_bytes, size);
+                            current.result_warning = compression_result_warning(
+                                job.source_size,
+                                job.target_size_bytes,
+                                size,
+                            );
                             current.error = None;
                         })
                         .await;
@@ -245,6 +248,24 @@ fn target_size_warning(target_size: Option<u64>, actual_size: u64) -> Option<Str
     ))
 }
 
+fn compression_result_warning(
+    source_size: u64,
+    target_size: Option<u64>,
+    actual_size: u64,
+) -> Option<String> {
+    let target_warning = target_size_warning(target_size, actual_size);
+    let no_savings = (actual_size >= source_size).then(|| {
+        "Вихідний файл не менший за оригінал: місця не заощаджено. Оригінал залишився без змін."
+            .to_string()
+    });
+
+    match (target_warning, no_savings) {
+        (Some(target), Some(savings)) => Some(format!("{target} {savings}")),
+        (Some(warning), None) | (None, Some(warning)) => Some(warning),
+        (None, None) => None,
+    }
+}
+
 pub(crate) async fn update_job(
     state: &AppState,
     app: &AppHandle,
@@ -279,7 +300,7 @@ async fn finish_job(
 
 #[cfg(test)]
 mod tests {
-    use super::{should_process_job, target_size_warning};
+    use super::{compression_result_warning, should_process_job, target_size_warning};
     use crate::models::JobStatus;
     use std::collections::HashSet;
 
@@ -311,5 +332,20 @@ mod tests {
         assert!(target_size_warning(Some(1_000), 1_100).is_some());
         assert!(target_size_warning(Some(1_000), 900).is_some());
         assert_eq!(target_size_warning(None, 10_000), None);
+    }
+
+    #[test]
+    fn warns_when_compression_does_not_reduce_the_source_size() {
+        assert_eq!(compression_result_warning(1_000, None, 999), None);
+        assert!(compression_result_warning(1_000, None, 1_000).is_some());
+        assert!(compression_result_warning(1_000, None, 1_200).is_some());
+    }
+
+    #[test]
+    fn target_size_warning_is_combined_with_a_no_savings_warning() {
+        let warning = compression_result_warning(1_000, Some(1_100), 1_200).unwrap();
+
+        assert!(warning.contains("цільовий"));
+        assert!(warning.contains("місця не заощаджено"));
     }
 }

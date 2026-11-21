@@ -45,7 +45,7 @@ The application detects available encoders at runtime, so the selected FFmpeg bu
 - A local queue with persistence, recovery of interrupted jobs, reordering, skipping, cancellation, retry, and cleanup.
 - Sequential processing with actual FFmpeg progress, speed, and estimated time remaining.
 - H.264, HEVC, and AV1 using individually tested QSV encoders and detected CPU encoders, with encoder-specific options.
-- Smart/Fast/Maximum encoder priorities and speed/compression presets.
+- Smart/Fast/Maximum encoder priorities and speed/compression presets. Smart prefers software HEVC with a slower compression preset when available, then falls back to tested hardware and other available encoders.
 - Target file size using bitrate control, two-pass x264/x265 where available, and a warning when the final size misses the 5% tolerance.
 - Three short preview fragments with side-by-side playback and optional SSIM/PSNR when the FFmpeg filters are available.
 - Automatic MKV output for jobs with subtitles or attachments; temporary outputs are validated before publishing.
@@ -57,7 +57,7 @@ The application detects available encoders at runtime, so the selected FFmpeg bu
 
 ## Current Limitations
 
-This is still not a completion of the full specification. Codec profiles and the bitrate-based output-size estimate have not been calibrated against the required test set. Smart currently chooses by encoder priority rather than scene-complexity analysis. Target-size output is verified and warned about, but the 5% tolerance has not been validated on real videos. Preview and SSIM/PSNR code are implemented but have not been exercised with an installed FFmpeg build; VMAF and 100% zoom comparison are not implemented. Custom mode remains unavailable. HDR jobs are intentionally stopped because HDR preservation cannot be guaranteed. Detailed CPU/RAM/GPU reporting and user-facing language selection are also incomplete.
+This is still not a completion of the full specification. Smart uses fixed codec quality targets; profiles and size estimates have not been calibrated against a representative video set, and there is no per-source perceptual quality gate. A visually transparent result therefore cannot be guaranteed for every source. Scene-complexity analysis, VMAF, and 100% zoom comparison are not implemented. Completed jobs warn when encoding fails to reduce the source file size. Target-size output is verified and warned about, but the 5% tolerance has not been validated on real videos. Preview and SSIM/PSNR code are implemented but have not been exercised against a representative set. Custom mode remains unavailable. HDR jobs are intentionally stopped because HDR preservation cannot be guaranteed. Detailed CPU/RAM/GPU reporting and user-facing language selection are also incomplete.
 
 MSI and NSIS bundles build successfully, but installer execution and actual encoding still require verification with properly licensed FFmpeg/FFprobe binaries and the test videos from the specification. A release also needs a Windows 11/QSV run on the target Intel hardware.
 
