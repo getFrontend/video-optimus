@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import UseAnimations from "react-useanimations";
 import sidebar from "react-useanimations/lib/sidebar";
+import packageInfo from "../package.json";
 import { BrandMark } from "./components/BrandMark";
 import { CustomSettingsDialog } from "./components/CustomSettingsDialog";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
@@ -66,6 +67,9 @@ export default function App() {
         <div className="brand">
           <BrandMark />
           <span className="brand-name">video<span>optimus</span></span>
+          <span className="brand-version" aria-label={`Версія ${packageInfo.version}`}>
+            v{packageInfo.version}
+          </span>
         </div>
         <div className="topbar-right">
           <span className={`runtime-pill${checkingRuntime ? " is-checking" : optimizer.snapshot?.runtime.ready ? " is-ready" : " is-missing"}`}>

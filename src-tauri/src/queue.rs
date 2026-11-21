@@ -175,17 +175,20 @@ pub fn scan_folder(path: &Path) -> Result<Vec<String>, String> {
 }
 
 fn scan_directory(directory: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
-    let entries = std::fs::read_dir(directory)
-        .map_err(|error| format!("Не вдалося прочитати теку: {error}"))?;
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let file_type = entry
-            .file_type()
-            .map_err(|error| format!("Не вдалося прочитати елемент теки: {error}"))?;
-        if file_type.is_dir() {
-            scan_directory(&path, files)?;
-        } else if file_type.is_file() && is_supported(&path) {
-            files.push(path);
+    let mut pending_directories = vec![directory.to_path_buf()];
+    while let Some(current_directory) = pending_directories.pop() {
+        let entries = std::fs::read_dir(current_directory)
+            .map_err(|error| format!("Не вдалося прочитати теку: {error}"))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let file_type = entry
+                .file_type()
+                .map_err(|error| format!("Не вдалося прочитати елемент теки: {error}"))?;
+            if file_type.is_dir() {
+                pending_directories.push(path);
+            } else if file_type.is_file() && is_supported(&path) {
+                files.push(path);
+            }
         }
     }
     Ok(())
@@ -327,7 +330,7 @@ pub async fn cancel_pending(state: &AppState) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_supported;
+    use super::{is_supported, scan_folder};
     use std::path::Path;
 
     #[test]
@@ -335,5 +338,23 @@ mod tests {
         assert!(is_supported(Path::new("presentation.MP4")));
         assert!(is_supported(Path::new("lesson.mkv")));
         assert!(!is_supported(Path::new("notes.txt")));
+    }
+
+    #[test]
+    fn scans_supported_files_in_nested_folders() {
+        let root =
+            std::env::temp_dir().join(format!("video-optimus-scan-{}", uuid::Uuid::new_v4()));
+        let nested = root.join("nested");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(root.join("first.MP4"), b"").unwrap();
+        std::fs::write(nested.join("second.mkv"), b"").unwrap();
+        std::fs::write(nested.join("ignore.txt"), b"").unwrap();
+
+        let files = scan_folder(&root).unwrap();
+
+        assert_eq!(files.len(), 2);
+        assert!(files.iter().any(|file| file.ends_with("first.MP4")));
+        assert!(files.iter().any(|file| file.ends_with("second.mkv")));
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
-import { getVideoThumbnail } from "../lib/videoThumbnails";
+import {
+  getVideoThumbnail,
+  invalidateVideoThumbnail,
+} from "../lib/videoThumbnails";
 import { Icon } from "./Icon";
 
 export function VideoThumbnail({
@@ -62,7 +65,10 @@ export function VideoThumbnail({
           className="queue-thumbnail"
           src={preview}
           alt=""
-          onError={() => setFailed(true)}
+          onError={() => {
+            invalidateVideoThumbnail(jobId);
+            setFailed(true);
+          }}
         />
       ) : (
         <Icon name="film" size={24} />

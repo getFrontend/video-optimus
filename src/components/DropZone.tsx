@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { useRef, type CSSProperties, type ReactNode } from "react";
 import UseAnimations from "react-useanimations";
 import type { Animation } from "react-useanimations";
 import filePlus from "react-useanimations/lib/filePlus";
 import film from "react-useanimations/lib/film";
 import folder from "react-useanimations/lib/folder";
+import { useAdaptiveButtonScale } from "../hooks/useAdaptiveButtonScale";
 
 const FORMATS = ["MP4", "MKV", "MOV", "AVI", "WEBM", "TS"];
 
@@ -18,13 +19,29 @@ export function DropZone({
   onFiles: () => void;
   onFolder: () => void;
 }) {
+  const dropZoneRef = useRef<HTMLElement | null>(null);
+  const actionsRef = useRef<HTMLDivElement | null>(null);
+  const { button: buttonScale, content: contentScale } = useAdaptiveButtonScale(
+    dropZoneRef,
+    actionsRef,
+  );
+
   return (
     <section
+      ref={dropZoneRef}
       className={`drop-zone${dragging ? " is-dragging" : ""}`}
+      style={{
+        "--drop-action-scale": buttonScale,
+        "--drop-content-scale": contentScale,
+      } as CSSProperties}
       aria-label="Додавання відео"
     >
       <span className="drop-symbol" aria-hidden="true">
-        <UseAnimations animation={film} interaction="loop" size={80} />
+        <UseAnimations
+          animation={film}
+          interaction="loop"
+          size={Math.round(80 * contentScale)}
+        />
       </span>
       <div className="drop-copy">
         <h2>{dragging ? "Відпустіть, щоб додати" : "Перетягніть відео сюди"}</h2>
@@ -34,9 +51,10 @@ export function DropZone({
           {FORMATS.map((format) => <li key={format}>{format}</li>)}
         </ul>
       </div>
-      <div className="drop-actions">
+      <div className="drop-actions" ref={actionsRef}>
         <AnimatedActionButton
           animation={filePlus}
+          iconSize={Math.max(24, Math.round(48 * buttonScale))}
           className="button button-primary"
           disabled={!available}
           onClick={onFiles}
@@ -45,6 +63,7 @@ export function DropZone({
         </AnimatedActionButton>
         <AnimatedActionButton
           animation={folder}
+          iconSize={Math.max(24, Math.round(48 * buttonScale))}
           className="button button-secondary drop-folder-button"
           disabled={!available}
           onClick={onFolder}
@@ -58,12 +77,14 @@ export function DropZone({
 
 function AnimatedActionButton({
   animation,
+  iconSize,
   className,
   disabled,
   onClick,
   children,
 }: {
   animation: Animation;
+  iconSize: number;
   className: string;
   disabled: boolean;
   onClick: () => void;
@@ -73,7 +94,7 @@ function AnimatedActionButton({
     <UseAnimations
       animation={animation}
       interaction="hover-replay"
-      size={48}
+      size={iconSize}
       render={(eventProps, animationProps) => (
         <button
           {...eventProps}

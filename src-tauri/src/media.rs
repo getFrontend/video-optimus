@@ -127,19 +127,25 @@ impl MediaTools {
 
     pub async fn analyze(&self, path: &Path) -> Result<VideoMetadata, String> {
         let probe = self.ffprobe.as_ref().ok_or_else(missing_tools)?;
-        let output = Command::new(probe)
-            .args([
-                "-v",
-                "error",
-                "-show_format",
-                "-show_streams",
-                "-of",
-                "json",
-            ])
-            .arg(path)
-            .output()
-            .await
-            .map_err(|error| format!("Не вдалося запустити FFprobe: {error}"))?;
+        let mut command = Command::new(probe);
+        command.kill_on_drop(true);
+        let output = timeout(
+            Duration::from_secs(60),
+            command
+                .args([
+                    "-v",
+                    "error",
+                    "-show_format",
+                    "-show_streams",
+                    "-of",
+                    "json",
+                ])
+                .arg(path)
+                .output(),
+        )
+        .await
+        .map_err(|_| "Час аналізу FFprobe перевищив 60 секунд.".to_string())?
+        .map_err(|error| format!("Не вдалося запустити FFprobe: {error}"))?;
 
         if !output.status.success() {
             let detail = String::from_utf8_lossy(&output.stderr);

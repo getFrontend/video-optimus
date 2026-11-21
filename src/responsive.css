@@ -29,8 +29,8 @@
   .workspace-tab-content { scroll-margin-top: 3rem; }
   .drop-zone { min-height: 18rem; padding: var(--space-lg); }
   .drop-actions { grid-column: 1 / -1; width: 100%; }
-  .drop-actions .button { flex: 1 1 auto; padding-inline: var(--space-md); }
-  .drop-actions .button { font-size: var(--text-lg); }
+  .drop-actions .button { flex: 1 1 auto; padding-inline: calc(var(--space-md) * var(--drop-action-scale, 1)); }
+  .drop-actions .button { font-size: calc(var(--text-lg) * var(--drop-action-scale, 1)); }
   .queue-heading { align-items: flex-start; flex-direction: column; }
   .queue-heading-actions { justify-content: flex-start; }
   .bulk-toolbar { align-items: stretch; }

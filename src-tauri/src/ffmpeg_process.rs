@@ -5,13 +5,14 @@ use crate::{
     state::AppState,
     worker::update_job,
 };
-use std::{path::Path, sync::Arc};
+use std::{path::Path, sync::Arc, time::Duration};
 use tauri::AppHandle;
 use tokio::{
     fs::OpenOptions,
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::Notify,
+    time::Instant,
 };
 
 struct EncodeContext<'a> {
@@ -407,6 +408,7 @@ async fn read_progress(
     let mut lines = BufReader::new(stdout).lines();
     let mut out_seconds = 0.0_f64;
     let mut last_sent = 0.0_f64;
+    let mut last_update = Instant::now();
     let mut speed = None;
     while let Ok(Some(line)) = lines.next_line().await {
         if let Some(value) = line
@@ -419,8 +421,13 @@ async fn read_progress(
         }
         let fraction = (out_seconds / job.metadata.duration_seconds).clamp(0.0, 1.0);
         let progress = progress_range.0 + fraction * (progress_range.1 - progress_range.0);
-        if progress - last_sent >= 0.15 || line == "progress=end" {
+        let now = Instant::now();
+        let should_emit = (progress - last_sent >= 0.5
+            && now.duration_since(last_update) >= Duration::from_millis(500))
+            || line == "progress=end";
+        if should_emit {
             last_sent = progress;
+            last_update = now;
             let parsed_speed = speed
                 .as_deref()
                 .and_then(|value| value.trim_end_matches('x').parse::<f64>().ok());
