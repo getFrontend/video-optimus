@@ -10,6 +10,7 @@ import { AnimatedIcon } from "./components/AnimatedIcon";
 import { CustomSettingsDialog } from "./components/CustomSettingsDialog";
 import { FfmpegSetupDialog } from "./components/FfmpegSetupDialog";
 import { Icon, type IconName } from "./components/Icon";
+import { QuitConfirmDialog } from "./components/QuitConfirmDialog";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { SettingsScrollbar } from "./components/SettingsScrollbar";
 import { SystemPanel } from "./components/SystemPanel";
@@ -281,6 +282,8 @@ export default function App() {
         job={comparisonJob}
         onClose={() => setComparisonJob(null)}
       />
+
+      <QuitConfirmDialog />
 
       {optimizer.notice && (
         <div

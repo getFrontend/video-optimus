@@ -3,12 +3,14 @@ mod commands;
 mod encoding;
 mod environment;
 mod ffmpeg_process;
+mod lifecycle;
 mod media;
 mod models;
 mod preview;
 mod queue;
 mod state;
 mod subprocess;
+mod tray;
 mod validation;
 mod window_controls;
 mod worker;
@@ -19,10 +21,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(window_controls::snap_layout_plugin())
+        .on_window_event(lifecycle::handle_window_event)
         .setup(|app| {
             let data_directory = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_directory)?;
             app.manage(state::AppState::load(data_directory));
+            tray::install(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -49,6 +53,7 @@ pub fn run() {
             commands::update_settings,
             commands::open_social_link,
             commands::open_path,
+            lifecycle::quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Video Optimus");
