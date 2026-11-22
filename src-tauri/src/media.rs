@@ -454,11 +454,52 @@ fn bit_depth(stream: &Value, pixel_format: Option<&str>) -> Option<u32> {
     number(stream, "bits_per_raw_sample")
         .filter(|depth| *depth > 0.0)
         .map(|depth| depth as u32)
-        .or_else(|| {
-            let suffix = pixel_format?.split_once('p')?.1;
-            let digits: String = suffix.chars().take_while(char::is_ascii_digit).collect();
-            digits.parse().ok()
-        })
+        .or_else(|| pixel_format.and_then(bit_depth_from_pixel_format))
+}
+
+fn bit_depth_from_pixel_format(pixel_format: &str) -> Option<u32> {
+    let suffix = pixel_format.rsplit_once('p').map(|(_, suffix)| suffix);
+    if let Some(suffix) = suffix {
+        let digits: String = suffix.chars().take_while(char::is_ascii_digit).collect();
+        if !digits.is_empty() {
+            return digits.parse().ok();
+        }
+    }
+
+    matches!(
+        pixel_format,
+        "yuv420p"
+            | "yuv422p"
+            | "yuv444p"
+            | "yuv410p"
+            | "yuv411p"
+            | "yuv440p"
+            | "yuvj420p"
+            | "yuvj422p"
+            | "yuvj444p"
+            | "yuvj440p"
+            | "yuva420p"
+            | "yuva422p"
+            | "yuva444p"
+            | "gbrp"
+            | "gbrap"
+            | "nv12"
+            | "nv21"
+            | "yuyv422"
+            | "uyvy422"
+            | "yvyu422"
+            | "rgb24"
+            | "bgr24"
+            | "rgba"
+            | "bgra"
+            | "rgb0"
+            | "bgr0"
+            | "0rgb"
+            | "0bgr"
+            | "gray"
+            | "gray8"
+    )
+    .then_some(8)
 }
 
 fn rotation_degrees(stream: &Value) -> Option<f64> {
@@ -574,7 +615,18 @@ mod tests {
     fn reads_bit_depth_from_pixel_format() {
         let stream = json!({ "bits_per_raw_sample": "0" });
         assert_eq!(bit_depth(&stream, Some("yuv420p10le")), Some(10));
-        assert_eq!(bit_depth(&stream, Some("yuv420p")), None);
+        assert_eq!(bit_depth(&stream, Some("yuv420p")), Some(8));
+        assert_eq!(bit_depth(&stream, Some("yuvj420p10le")), Some(10));
+        assert_eq!(bit_depth(&stream, Some("p010le")), Some(10));
+        assert_eq!(bit_depth(&stream, Some("nv12")), Some(8));
+        assert_eq!(bit_depth(&stream, Some("unknown")), None);
+    }
+
+    #[test]
+    fn reported_bit_depth_takes_precedence_over_pixel_format_inference() {
+        let stream = json!({ "bits_per_raw_sample": "10" });
+
+        assert_eq!(bit_depth(&stream, Some("yuv420p")), Some(10));
     }
 
     #[test]

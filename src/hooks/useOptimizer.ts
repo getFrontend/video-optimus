@@ -105,6 +105,13 @@ export function useOptimizer() {
         return;
       }
       unlistenSnapshot = stopSnapshot;
+      const cachedSnapshot = await invoke<AppSnapshot>("get_snapshot");
+      if (disposed) return;
+      if (!snapshotRef.current) {
+        snapshotRef.current = cachedSnapshot;
+        setSnapshot(cachedSnapshot);
+      }
+
       const stopDrop = await getCurrentWindow().onDragDropEvent((event) => {
         if (event.payload.type === "over") setDragging(true);
         if (event.payload.type === "leave") setDragging(false);
