@@ -14,6 +14,7 @@ import { VideoWorkspace } from "./components/VideoWorkspace";
 import { WindowControls } from "./components/WindowControls";
 import { useOptimizer, type NoticeType } from "./hooks/useOptimizer";
 import { formatSize } from "./lib/format";
+import { isSuccessfulJob } from "./lib/jobs";
 
 const noticeIcons = {
   info: "info",
@@ -40,7 +41,7 @@ export default function App() {
   const jobs = optimizer.snapshot?.jobs ?? [];
   const checkingRuntime = optimizer.checkingRuntime && optimizer.desktop;
   const pendingCount = jobs.filter((job) => job.status === "pending").length;
-  const completedCount = jobs.filter((job) => job.status === "completed").length;
+  const completedCount = jobs.filter(isSuccessfulJob).length;
 
   return (
     <main

@@ -292,6 +292,9 @@ async fn finish_job(
         job.error = error;
         if !matches!(job.status, JobStatus::Completed) {
             job.elapsed_seconds = None;
+            job.output_path = None;
+            job.output_size = None;
+            job.result_warning = None;
         }
     })
     .await;

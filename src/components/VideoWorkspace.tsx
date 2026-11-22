@@ -10,6 +10,7 @@ import { QueueBulkToolbar } from "./QueueBulkToolbar";
 import { WorkspaceTabs, type WorkspaceTab } from "./WorkspaceTabs";
 import { SELECTABLE_STATUSES, useBulkQueueSelection } from "../hooks/useBulkQueueSelection";
 import { useOptimizer } from "../hooks/useOptimizer";
+import { isSuccessfulJob } from "../lib/jobs";
 import type { JobStatus, VideoJob } from "../types";
 
 const ACTIVE: JobStatus[] = ["analyzing", "preparing", "encoding", "validating"];
@@ -57,7 +58,7 @@ export function VideoWorkspace({
   const previousAllCompleted = useRef<boolean | null>(null);
   const hasSnapshot = optimizer.snapshot !== null;
   const activeJob = jobs.find((job) => ACTIVE.includes(job.status));
-  const processingJobs = jobs.filter((job) => job.status !== "completed");
+  const processingJobs = jobs.filter((job) => !isSuccessfulJob(job));
   const activeJobs = jobs.filter((job) => ACTIVE.includes(job.status));
   const pendingJobs = jobs.filter((job) => job.status === "pending");
   const queuedJobs = jobs.filter(
@@ -114,7 +115,7 @@ export function VideoWorkspace({
   useEffect(() => {
     if (!hasSnapshot) return;
 
-    const allCompleted = jobs.length > 0 && jobs.every((job) => job.status === "completed");
+    const allCompleted = jobs.length > 0 && jobs.every(isSuccessfulJob);
     const wasAllCompleted = previousAllCompleted.current;
     previousAllCompleted.current = allCompleted;
 
@@ -381,7 +382,7 @@ export function VideoWorkspace({
               </div>
             )}
             {completedCount > 0 ? (
-              renderJobs(jobs.filter((job) => job.status === "completed"))
+              renderJobs(jobs.filter(isSuccessfulJob))
             ) : (
               <div className="empty-queue">
                 <EmptyStateAnimation

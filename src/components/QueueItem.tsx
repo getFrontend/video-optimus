@@ -5,6 +5,7 @@ import visibility2 from "react-useanimations/lib/visibility2";
 import type { AppSettings, VideoJob } from "../types";
 import { formatDuration, formatFrameRate, formatSize, statusLabel } from "../lib/format";
 import { estimateOutputSize } from "../lib/estimate";
+import { isSuccessfulJob } from "../lib/jobs";
 import { AnimatedIcon } from "./AnimatedIcon";
 import { Icon } from "./Icon";
 import { VideoThumbnail } from "./VideoThumbnail";
@@ -122,6 +123,7 @@ export function QueueItem({
   const active = activeStatuses.has(job.status);
   const pending = job.status === "pending";
   const skipped = job.status === "skipped";
+  const successful = isSuccessfulJob(job);
   const saved = job.outputSize == null ? 0 : Math.max(0, job.sourceSize - job.outputSize);
   const percentSaved = job.outputSize == null
     ? 0
@@ -131,7 +133,7 @@ export function QueueItem({
   const estimateQuality = pending ? settings.quality : job.quality;
   const estimateCustomSettings = pending ? settings.customSettings : job.customSettings;
   const targetSizeBytes = pending ? settings.targetSizeBytes : job.targetSizeBytes;
-  const estimate = job.status !== "completed" &&
+  const estimate = !successful &&
     targetSizeBytes == null
     ? estimateOutputSize(
       job.sourceSize,
@@ -144,7 +146,7 @@ export function QueueItem({
   const savings = estimate
     ? describeSavings(job.sourceSize, estimate.minBytes, estimate.maxBytes)
     : null;
-  const showTargetSize = targetSizeBytes != null && job.status !== "completed";
+  const showTargetSize = targetSizeBytes != null && !successful;
   const hasEstimate = showTargetSize || estimate != null;
   const estimateBasis = estimate?.basis === "bitrate"
     ? "Оцінка на основі тривалості та бітрейту медіапотоків"
@@ -209,7 +211,7 @@ export function QueueItem({
         codec={job.metadata.codec}
         skipped={skipped}
         onPlay={() => onOpen(
-          job.status === "completed" && job.outputPath ? job.outputPath : job.path,
+          successful ? job.outputPath : job.path,
         )}
       />
 
@@ -245,7 +247,7 @@ export function QueueItem({
             {job.etaSeconds != null && <span className="progress-eta">залишилося {formatDuration(job.etaSeconds)}</span>}
           </div>
         )}
-        {job.status === "completed" && job.outputSize != null && (
+        {successful && job.outputSize != null && (
           <div className="result-line">
             <span>Результат: {formatSize(job.outputSize)}</span>
             <strong>−{percentSaved}%</strong>
@@ -303,8 +305,8 @@ export function QueueItem({
       )}
 
       <div className="queue-actions">
-        {job.status === "completed" && job.outputPath && (
-          <button className="icon-button" type="button" aria-label="Показати в теці" title="Показати в теці" onClick={() => onOpen(job.outputPath!, true)}>
+        {successful && (
+          <button className="icon-button" type="button" aria-label="Показати в теці" title="Показати в теці" onClick={() => onOpen(job.outputPath, true)}>
             <Icon name="folder" size={20} />
           </button>
         )}
