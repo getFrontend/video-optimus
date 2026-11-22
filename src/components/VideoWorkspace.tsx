@@ -248,7 +248,7 @@ export function VideoWorkspace({
           <div className="workspace-processing-actions">
             {activeJob && (
               <button
-                className="button button-quiet button-cancel"
+                className="button button-secondary button-cancel"
                 type="button"
                 onClick={optimizer.cancelCurrent}
               >

@@ -53,6 +53,14 @@
   .queue-actions { grid-column: 4; grid-row: 1 / span 3; align-self: center; flex-direction: column; }
   .queue-item.is-single .queue-actions { grid-column: 3; grid-row: 1 / span 3; }
   .queue-progress { align-items: flex-start; }
+  .queue-item.is-active:not(.has-estimate) { grid-template-columns: 2rem 4rem minmax(0, 1fr) minmax(8rem, 12rem) auto; }
+  .queue-item.is-single.is-active:not(.has-estimate) { grid-template-columns: 4rem minmax(0, 1fr) minmax(8rem, 12rem) auto; }
+  .queue-item.is-active .queue-main { grid-column: 3; grid-row: 1; }
+  .queue-item.is-active .queue-progress { grid-column: 4; grid-row: 1; margin-top: 0; }
+  .queue-item.is-active .queue-actions { grid-column: 5; grid-row: 1; }
+  .queue-item.is-single.is-active .queue-main { grid-column: 2; grid-row: 1; }
+  .queue-item.is-single.is-active .queue-progress { grid-column: 3; grid-row: 1; margin-top: 0; }
+  .queue-item.is-single.is-active .queue-actions { grid-column: 4; grid-row: 1; }
   .queue-footer { align-items: stretch; flex-direction: column; gap: var(--space-sm); }
   .queue-footer-actions { align-items: stretch; flex-direction: column; gap: var(--space-sm); }
   .queue-footer-actions .button { width: 100%; }

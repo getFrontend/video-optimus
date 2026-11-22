@@ -194,8 +194,8 @@
   border-width: 0 0 2px 2px;
 }
 
-.comparison-divider-handle i:first-child { transform: rotate(45deg) translateX(-1px); }
-.comparison-divider-handle i:last-child { transform: rotate(-135deg) translateX(-1px); }
+.comparison-divider-handle i:first-child { transform: rotate(45deg); }
+.comparison-divider-handle i:last-child { transform: rotate(225deg); }
 
 .comparison-center-play {
   position: absolute;

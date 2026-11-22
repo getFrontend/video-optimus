@@ -242,26 +242,6 @@ export function QueueItem({
           {job.metadata.isVfr && <span className="metadata-tag">VFR</span>}
           {job.metadata.isHdr && <span className="metadata-tag">HDR</span>}
         </div>
-        {active && (
-          <div className="queue-progress">
-            <div
-              className="progress-track"
-              role="progressbar"
-              aria-label={`Обробка файлу ${job.fileName}`}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(progress)}
-              aria-valuetext={`${Math.round(progress)}%${job.speed ? `, ${job.speed}` : ""}${job.etaSeconds != null ? `, залишилося ${formatDuration(job.etaSeconds)}` : ""}`}
-            >
-              <span style={{ transform: `scaleX(${progress / 100})` }} />
-            </div>
-            <div className="progress-details">
-              <span className="progress-percent">{Math.round(progress)}%</span>
-              {job.speed && <span className="progress-speed">{job.speed}</span>}
-              {job.etaSeconds != null && <span className="progress-eta">залишилося {formatDuration(job.etaSeconds)}</span>}
-            </div>
-          </div>
-        )}
         {job.resultWarning && <p className="job-warning">{job.resultWarning}</p>}
         {job.error && <p className="job-error" title={job.error}>{job.error}</p>}
         {job.diagnosticLog && (
@@ -274,6 +254,32 @@ export function QueueItem({
           </button>
         )}
       </div>
+
+      {active && (
+        <div className="queue-progress">
+          <div
+            className="progress-track"
+            role="progressbar"
+            aria-label={`Обробка файлу ${job.fileName}`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress)}
+            aria-valuetext={`${Math.round(progress)}%${job.speed ? `, ${job.speed}` : ""}${job.etaSeconds != null ? `, залишилося ${formatDuration(job.etaSeconds)}` : ""}`}
+          >
+            <span style={{ transform: `scaleX(${progress / 100})` }} />
+          </div>
+          <div className="progress-details">
+            <span className="progress-percent">{Math.round(progress)}%</span>
+            {job.speed && <span className="progress-speed">{job.speed}</span>}
+            {job.etaSeconds != null && (
+              <span className="progress-eta" title={`Залишилося ${formatDuration(job.etaSeconds)}`}>
+                <Icon name="clock" size={14} />
+                {formatDuration(job.etaSeconds)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {showTargetSize ? (
         <aside
