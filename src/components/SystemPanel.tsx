@@ -42,11 +42,8 @@ export function SystemPanel({
 
   return (
     <section className="system-panel">
-      {!desktop ? (
-        <div className="system-state state-muted">
-          Відкрийте настільну версію застосунку
-        </div>
-      ) : checkingRuntime ? (
+      {/* TEMP: browser preview of missing-FFmpeg state; revert after UI test */}
+      {desktop && checkingRuntime ? (
         <div className="system-state state-muted system-loading" role="status">
           <span className="loading-spinner" aria-hidden="true" />
           <span>Перевіряємо кодеки та FFmpeg…</span>

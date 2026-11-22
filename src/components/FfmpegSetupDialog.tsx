@@ -132,32 +132,20 @@ export function FfmpegSetupDialog({
             <div className="ffmpeg-instruction-heading">
               <span className="ffmpeg-step-number">01</span>
               <div>
-                <h3>Перевірте наявну установку</h3>
-                <p>Якщо FFmpeg уже встановлений, повторно завантажувати його не потрібно.</p>
-              </div>
-            </div>
-            <pre className="ffmpeg-command"><code>where.exe ffmpeg{"\n"}where.exe ffprobe</code></pre>
-            <p className="ffmpeg-instruction-note">
-              Якщо обидві команди показали шлях до файлу, поверніться до Video Optimus —
-              він перевірить підключення, щойно вікно знову отримає фокус. Якщо шляхів
-              немає, додайте папку <code>bin</code> до змінної <code>Path</code> нижче.
-            </p>
-          </section>
-
-          <section className="ffmpeg-instruction">
-            <div className="ffmpeg-instruction-heading">
-              <span className="ffmpeg-step-number">02</span>
-              <div>
-                <h3>Встановіть FFmpeg однією командою</h3>
-                <p>WinGet завантажить і зареєструє готові команди FFmpeg у системі.</p>
+                <h3>Встановіть FFmpeg однією командою в PowerShell</h3>
+                <p>
+                  Відкрийте PowerShell (Win + X → «Термінал» або «Windows PowerShell») і виконайте
+                  команду нижче. WinGet завантажить і зареєструє команди FFmpeg у системі.
+                </p>
               </div>
             </div>
             <pre className="ffmpeg-command"><code>winget install ffmpeg</code></pre>
             <p className="ffmpeg-instruction-note">
               WinGet сам розпакує пакет у свою папку та додасть команди до <code>PATH</code>.
               Точний каталог залежить від установки; шукати його вручну не потрібно.
-              Після завершення поверніться до Video Optimus — він автоматично перевірить
-              FFmpeg, коли вікно знову отримає фокус.
+            </p>
+            <p className="ffmpeg-instruction-note">
+              Після завершення перезапустіть Video Optimus — він перевірить FFmpeg під час запуску.
             </p>
             <p className="ffmpeg-instruction-note">
               Перевірити реєстрацію команд можна в новому PowerShell:{" "}
