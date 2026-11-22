@@ -268,7 +268,7 @@ export function VideoWorkspace({
             <AnimatedIcon
               animation={trash2}
               interaction="hover"
-              size={28}
+              size={22}
               render={(eventProps, animationProps) => (
                 <button
                   {...eventProps}

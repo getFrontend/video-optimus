@@ -415,12 +415,12 @@ export function QueueItem({
               size={27}
             />
           </label>
-        ) : skipped ? (
+        ) : (
           <span
             className="queue-select queue-select-placeholder"
             aria-hidden="true"
           />
-        ) : null}
+        )}
       </div>
     </article>
   );

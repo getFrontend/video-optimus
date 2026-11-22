@@ -1,6 +1,6 @@
 [package]
 name = "video-optimus"
-version = "1.3.2"
+version = "1.3.3"
 description = "Локальная очередь оптимизации видео"
 authors = ["Video Optimus"]
 edition = "2021"

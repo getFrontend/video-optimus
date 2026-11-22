@@ -51,12 +51,12 @@ pub(crate) fn select_encoder(job: &VideoJob, tools: &MediaTools) -> Option<Encod
             ("libsvtav1", None),
         ],
         CompressionMode::Smart => vec![
-            ("libx265", None),
             ("hevc_qsv", Some("libx265")),
+            ("h264_qsv", Some("libx264")),
+            ("libx265", None),
+            ("libx264", None),
             ("libsvtav1", None),
             ("av1_qsv", Some("libsvtav1")),
-            ("libx264", None),
-            ("h264_qsv", Some("libx264")),
         ],
     };
     candidates
@@ -369,7 +369,7 @@ fn encoder_preset(job: &VideoJob, encoder: &str) -> &'static str {
         (_, "libsvtav1") => "8",
         (CompressionMode::Fast, _) => "veryfast",
         (CompressionMode::Maximum, _) => "slow",
-        (CompressionMode::Smart, "libx265") => "slow",
+        (CompressionMode::Smart, "libx265") => "medium",
         (CompressionMode::Smart | CompressionMode::Custom, _) => "medium",
     }
 }
@@ -539,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    fn smart_prefers_quality_efficient_cpu_encoders_when_available() {
+    fn smart_prefers_hardware_hevc_when_available() {
         let tools = tools(&[
             ("hevc_qsv", true, true),
             ("libx265", true, false),
@@ -548,8 +548,8 @@ mod tests {
 
         let choice = select_encoder(&job(CompressionMode::Smart, 0), &tools).unwrap();
 
-        assert_eq!(choice.name, "libx265");
-        assert_eq!(choice.software_fallback, None);
+        assert_eq!(choice.name, "hevc_qsv");
+        assert_eq!(choice.software_fallback.as_deref(), Some("libx265"));
     }
 
     #[test]
@@ -694,7 +694,7 @@ mod tests {
     }
 
     #[test]
-    fn smart_uses_conservative_hevc_quality_and_efficiency_preset() {
+    fn smart_uses_balanced_hevc_quality_and_medium_preset() {
         let options = ["crf".to_string(), "preset".to_string()];
         let args = encoding_args(
             &job(CompressionMode::Smart, 0),
@@ -717,7 +717,7 @@ mod tests {
             .any(|pair| pair[0] == "-crf" && pair[1] == "25"));
         assert!(args
             .windows(2)
-            .any(|pair| pair[0] == "-preset" && pair[1] == "slow"));
+            .any(|pair| pair[0] == "-preset" && pair[1] == "medium"));
     }
 
     #[test]
