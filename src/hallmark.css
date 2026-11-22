@@ -71,6 +71,7 @@
 .workspace-tabs-nav { display: flex; flex: 0 1 auto; min-width: 0; }
 .workspace-nav-actions { display: flex; flex: 1 1 20rem; justify-content: flex-end; min-width: 0; }
 .workspace-nav-actions .bulk-toolbar { justify-content: flex-end; padding-block: 0; border-bottom: 0; }
+.workspace-processing-actions { display: flex; flex: 1 1 auto; align-items: center; justify-content: flex-end; gap: var(--space-sm); min-width: 0; }
 .workspace-tabs { --tabs-dur: var(--dropdown-open-dur); --tabs-ease: var(--dropdown-ease); --tabs-text-muted: var(--color-ink-2); --tabs-text-active: var(--color-accent); --tabs-bar-bg: var(--color-paper-2); --tabs-pill-bg: var(--color-paper); position: relative; display: inline-flex; align-items: center; gap: 3px; min-width: 0; padding: 3px; border: var(--rule-hair) solid color-mix(in oklab, var(--color-rule) 68%, transparent); border-radius: var(--radius-pill); background: var(--tabs-bar-bg); }
 .t-tabs { position: relative; display: inline-flex; align-items: center; gap: 3px; padding: 3px; border-radius: 48px; background: var(--tabs-bar-bg); }
 .t-tab { position: relative; appearance: none; border: 0; background: transparent; height: 30px; padding: 4px 12px; color: var(--tabs-text-muted); cursor: pointer; border-radius: 48px; z-index: 1; transition: color var(--tabs-dur) var(--tabs-ease); }
@@ -182,7 +183,6 @@
 .queue-sequence-heading strong { color: var(--color-ink); font-weight: 550; }
 .queue-sequence-heading > span:last-child { color: var(--color-muted); }
 .queue-count { margin-left: var(--space-xs); color: var(--color-ink-2); font-size: var(--text-md); font-weight: 400; font-variant-numeric: tabular-nums; }
-.queue-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2xs); }
 .button-cancel-pending { min-height: 2.5rem; gap: var(--space-xs); padding-inline: var(--space-md); border-color: color-mix(in oklab, var(--color-error) 24%, var(--color-rule)); background: color-mix(in oklab, var(--color-error-soft) 55%, var(--color-paper)); color: var(--color-error); }
 .button-cancel-pending:hover:not(:disabled) { border-color: color-mix(in oklab, var(--color-error) 48%, var(--color-rule)); background: var(--color-error-soft); }
 .queue-list { min-width: 0; }

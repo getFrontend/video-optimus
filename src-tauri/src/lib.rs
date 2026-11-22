@@ -32,6 +32,7 @@ pub fn run() {
             commands::get_video_thumbnail,
             commands::create_video_preview,
             commands::remove_video_preview,
+            commands::allow_comparison_media,
             commands::enqueue_files,
             commands::enqueue_folder,
             commands::start_queue,

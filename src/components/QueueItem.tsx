@@ -224,9 +224,7 @@ export function QueueItem({
         fileName={job.fileName}
         codec={job.metadata.codec}
         skipped={skipped}
-        onPlay={() => onOpen(
-          successful ? job.outputPath : job.path,
-        )}
+        onPlay={() => onOpen(job.path)}
       />
 
       <div className="queue-main">

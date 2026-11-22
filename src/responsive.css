@@ -23,6 +23,7 @@
   .workspace-nav { align-items: stretch; flex-direction: column; gap: 0; padding-block: var(--space-xs); }
   .workspace-tabs-nav,
   .workspace-nav-actions { flex: 0 0 auto; width: 100%; }
+  .workspace-processing-actions { flex-wrap: wrap; width: 100%; }
   .workspace-tabs { width: 100%; }
   .workspace-nav-actions .bulk-toolbar { align-items: stretch; }
   .workspace-tab { flex: 1 1 0; min-height: 3rem; gap: var(--space-2xs); padding-inline: var(--space-xs); font-size: var(--text-xs); }
@@ -33,7 +34,6 @@
   .drop-actions .button { flex: 1 1 auto; padding-inline: calc(var(--space-md) * var(--drop-action-scale, 1)); }
   .drop-actions .button { font-size: calc(var(--text-lg) * var(--drop-action-scale, 1)); }
   .queue-heading { align-items: flex-start; flex-direction: column; }
-  .queue-heading-actions { justify-content: flex-start; }
   .bulk-toolbar { align-items: stretch; }
   .bulk-selection-count { width: 100%; margin-right: 0; }
   .bulk-toolbar .button { flex: 1 1 100%; }

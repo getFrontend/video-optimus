@@ -244,11 +244,25 @@ export function VideoWorkspace({
         processingCount={processingJobs.length}
         completedCount={completedCount}
         onSelect={selectTab}
-        actions={activeTab === "processing" && bulk.selectedJobs.length > 0 ? (
-          <QueueBulkToolbar
-            selectedCount={bulk.selectedJobs.length}
-            onClear={bulk.clear}
-          />
+        actions={activeTab === "processing" && (activeJob || bulk.selectedJobs.length > 0) ? (
+          <div className="workspace-processing-actions">
+            {activeJob && (
+              <button
+                className="button button-quiet button-cancel"
+                type="button"
+                onClick={optimizer.cancelCurrent}
+              >
+                <Icon name="close" size={16} />
+                Скасувати поточне
+              </button>
+            )}
+            {bulk.selectedJobs.length > 0 && (
+              <QueueBulkToolbar
+                selectedCount={bulk.selectedJobs.length}
+                onClear={bulk.clear}
+              />
+            )}
+          </div>
         ) : activeTab === "completed" && completedCount > 0 ? (
           <div className="bulk-toolbar" role="toolbar" aria-label="Дії з готовими відео">
             <AnimatedIcon
@@ -295,23 +309,13 @@ export function VideoWorkspace({
 
         {activeTab === "processing" && (
           <section className="queue-panel" aria-label="Обробка відео" ref={queuePanelRef}>
-            {(processingJobs.length > 1 || activeJob) && (
+            {processingJobs.length > 1 && (
               <div className="queue-heading">
-                {processingJobs.length > 1 && (
-                  <div className="queue-sequence-heading">
-                    <Icon name="clock" size={20} />
-                    <strong>Послідовна обробка</strong>
-                    <span aria-hidden="true">·</span>
-                    <span>Одне відео за раз</span>
-                  </div>
-                )}
-                <div className="queue-heading-actions">
-                  {activeJob && (
-                    <button className="button button-quiet button-cancel" type="button" onClick={optimizer.cancelCurrent}>
-                      <Icon name="close" size={16} />
-                      Скасувати поточне
-                    </button>
-                  )}
+                <div className="queue-sequence-heading">
+                  <Icon name="clock" size={20} />
+                  <strong>Послідовна обробка</strong>
+                  <span aria-hidden="true">·</span>
+                  <span>Одне відео за раз</span>
                 </div>
               </div>
             )}
@@ -337,7 +341,9 @@ export function VideoWorkspace({
               <>
                 {activeJobs.length > 0 && (
                   <section className="queue-group" aria-label="Відео в обробці">
-                    <h3>Зараз обробляються <span>{activeJobs.length}</span></h3>
+                    {activeJobs.length > 1 && (
+                      <h3>Зараз обробляються <span>{activeJobs.length}</span></h3>
+                    )}
                     {renderJobs(activeJobs)}
                   </section>
                 )}

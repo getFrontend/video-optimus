@@ -93,6 +93,26 @@ pub(crate) fn requires_matroska(metadata: &VideoMetadata) -> bool {
                 })))
 }
 
+pub(crate) fn audio_codec_for_job(job: &VideoJob) -> &'static str {
+    if matches!(job.mode, CompressionMode::Custom)
+        && matches!(job.custom_settings.audio_codec, CustomAudioCodec::Aac)
+    {
+        return "aac";
+    }
+    if matches!(job.mode, CompressionMode::Smart) {
+        let source_bitrate = job
+            .metadata
+            .audio_streams
+            .first()
+            .and_then(|stream| stream.bitrate);
+        let reencode = source_bitrate.map(|bits| bits > 160_000).unwrap_or(true);
+        if reencode {
+            return "aac";
+        }
+    }
+    "copy"
+}
+
 pub(crate) struct EncodingPlan<'a> {
     pub encoder: &'a str,
     pub supported_options: &'a [String],
@@ -228,6 +248,8 @@ pub(crate) fn encoding_args(job: &VideoJob, plan: EncodingPlan<'_>) -> Vec<Strin
         if audio_codec == "aac" {
             let bitrate = if matches!(job.mode, CompressionMode::Custom) {
                 job.custom_settings.audio_bitrate_kbps
+            } else if matches!(job.mode, CompressionMode::Smart) {
+                128
             } else {
                 192
             };
@@ -286,6 +308,20 @@ pub(crate) fn target_video_bitrate(job: &VideoJob) -> Result<Option<u64>, String
     {
         u64::from(job.metadata.audio_tracks)
             .saturating_mul(u64::from(job.custom_settings.audio_bitrate_kbps) * 1_000)
+    } else if matches!(job.mode, CompressionMode::Smart) {
+        let per_stream = |stream: &crate::models::AudioStreamInfo| {
+            stream.bitrate.unwrap_or(128_000).min(128_000)
+        };
+        if job.metadata.audio_streams.is_empty() {
+            u64::from(job.metadata.audio_tracks).saturating_mul(128_000)
+        } else {
+            job.metadata
+                .audio_streams
+                .iter()
+                .fold(0_u64, |total, stream| {
+                    total.saturating_add(per_stream(stream))
+                })
+        }
     } else if job.metadata.audio_streams.is_empty() {
         u64::from(job.metadata.audio_tracks).saturating_mul(192_000)
     } else {
@@ -366,9 +402,9 @@ fn qsv_quality(quality: &QualityProfile) -> u8 {
 fn software_quality(encoder: &str, quality: &QualityProfile) -> u8 {
     match (encoder, quality) {
         ("libx265", QualityProfile::NearOriginal) => 19,
-        ("libx265", QualityProfile::High) => 21,
-        ("libx265", QualityProfile::Balanced) => 22,
-        ("libx265", QualityProfile::Compact) => 27,
+        ("libx265", QualityProfile::High) => 22,
+        ("libx265", QualityProfile::Balanced) => 25,
+        ("libx265", QualityProfile::Compact) => 28,
         (_, QualityProfile::NearOriginal) => 17,
         (_, QualityProfile::High) => 19,
         (_, QualityProfile::Balanced) => 22,
@@ -388,8 +424,9 @@ fn svt_quality(quality: &QualityProfile) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::{
-        encoder_preset, encoding_args, output_extension, qsv_quality, requires_matroska,
-        select_encoder, software_quality, svt_quality, target_video_bitrate, EncodingPlan,
+        audio_codec_for_job, encoder_preset, encoding_args, output_extension, qsv_quality,
+        requires_matroska, select_encoder, software_quality, svt_quality, target_video_bitrate,
+        EncodingPlan,
     };
     use crate::{
         media::MediaTools,
@@ -465,7 +502,7 @@ mod tests {
     fn quality_values_are_codec_specific() {
         assert_eq!(qsv_quality(&QualityProfile::High), 21);
         assert_eq!(software_quality("libx264", &QualityProfile::High), 19);
-        assert_eq!(software_quality("libx265", &QualityProfile::High), 21);
+        assert_eq!(software_quality("libx265", &QualityProfile::High), 22);
         assert_eq!(svt_quality(&QualityProfile::High), 27);
     }
 
@@ -677,10 +714,63 @@ mod tests {
 
         assert!(args
             .windows(2)
-            .any(|pair| pair[0] == "-crf" && pair[1] == "22"));
+            .any(|pair| pair[0] == "-crf" && pair[1] == "25"));
         assert!(args
             .windows(2)
             .any(|pair| pair[0] == "-preset" && pair[1] == "slow"));
+    }
+
+    #[test]
+    fn smart_aac_uses_128_kbps_to_match_streaming_quality() {
+        let options = ["crf".to_string(), "preset".to_string()];
+        let args = encoding_args(
+            &job(CompressionMode::Smart, 0),
+            EncodingPlan {
+                encoder: "libx265",
+                supported_options: &options,
+                target_video_bitrate: None,
+                pass: None,
+                pass_logfile: None,
+                audio_codec: "aac",
+                include_audio: true,
+                start_seconds: None,
+                duration_seconds: None,
+                temporary: Path::new("output.mp4"),
+            },
+        );
+
+        assert!(args
+            .windows(2)
+            .any(|pair| pair[0] == "-b:a" && pair[1] == "128k"));
+    }
+
+    #[test]
+    fn smart_reencodes_high_bitrate_audio_and_copies_low_bitrate() {
+        let mut high = job(CompressionMode::Smart, 0);
+        high.metadata.audio_streams = vec![AudioStreamInfo {
+            bitrate: Some(256_000),
+            ..Default::default()
+        }];
+        assert_eq!(audio_codec_for_job(&high), "aac");
+
+        let mut low = job(CompressionMode::Smart, 0);
+        low.metadata.audio_streams = vec![AudioStreamInfo {
+            bitrate: Some(128_000),
+            ..Default::default()
+        }];
+        assert_eq!(audio_codec_for_job(&low), "copy");
+
+        let unknown = job(CompressionMode::Smart, 0);
+        assert_eq!(audio_codec_for_job(&unknown), "aac");
+    }
+
+    #[test]
+    fn non_smart_modes_copy_audio_by_default() {
+        assert_eq!(audio_codec_for_job(&job(CompressionMode::Fast, 0)), "copy");
+        assert_eq!(
+            audio_codec_for_job(&job(CompressionMode::Maximum, 0)),
+            "copy"
+        );
     }
 
     #[test]

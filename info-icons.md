@@ -9,3 +9,4 @@
 | `linkedin` (`react-useanimations`) | Header social link | Loops only while hovered; the library respects reduced-motion preferences. |
 | `compare` (`src/components/Icon.tsx`) | Successful queue row comparison action | Opens the synchronized original-versus-optimized wipe viewer. |
 | `volume` / `volumeOff` (`src/components/Icon.tsx`) | Comparison player audio toggle | Controls original audio while the optimized track stays muted to prevent overlap. |
+| `playPause` (`react-useanimations`) | Comparison player play/pause buttons (controls and center overlay) | Morphs between play and pause, driven by the `active` prop from playback state. |

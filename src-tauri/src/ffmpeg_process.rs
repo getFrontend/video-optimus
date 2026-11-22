@@ -1,7 +1,9 @@
 use crate::{
-    encoding::{encoding_args, target_video_bitrate, EncoderChoice, EncodingPlan},
+    encoding::{
+        audio_codec_for_job, encoding_args, target_video_bitrate, EncoderChoice, EncodingPlan,
+    },
     media::MediaTools,
-    models::{CompressionMode, CustomAudioCodec, VideoJob},
+    models::VideoJob,
     state::AppState,
     subprocess::hidden_console,
     worker::update_job,
@@ -39,13 +41,7 @@ pub(crate) async fn encode_with_fallback(
         tools,
     };
     let target_video_bitrate = target_video_bitrate(job)?;
-    let audio_codec = if matches!(job.mode, CompressionMode::Custom)
-        && matches!(job.custom_settings.audio_codec, CustomAudioCodec::Aac)
-    {
-        "aac"
-    } else {
-        "copy"
-    };
+    let audio_codec = audio_codec_for_job(job);
     let first = run_encoder(
         &context,
         &encoder.name,

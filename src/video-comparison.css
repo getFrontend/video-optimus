@@ -1,28 +1,25 @@
+.video-comparison-backdrop {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .video-comparison-dialog {
-  width: min(88rem, 100%);
-  max-height: min(62rem, calc(100dvh - 2 * clamp(var(--space-sm), 4vh, var(--space-xl))));
+  width: min(104rem, 100%);
+  max-height: min(90rem, calc(100dvh - 2 * clamp(var(--space-sm), 4vh, var(--space-xl))));
 }
 
-.video-comparison-header {
+.ffmpeg-dialog-header.video-comparison-header {
   align-items: center;
-  padding-block: var(--space-md);
+  padding-block: var(--space-sm);
 }
-
-.video-comparison-title {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.video-comparison-title > div { min-width: 0; }
-.video-comparison-title h2 { font-size: var(--text-xl); }
 
 .video-comparison-filename {
+  min-width: 0;
   max-width: min(62vw, 68ch);
-  margin-top: var(--space-2xs);
+  margin: 0;
   overflow: hidden;
-  color: var(--color-muted);
-  font-size: var(--text-sm);
+  color: var(--color-text, inherit);
+  font-size: var(--text-lg);
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -35,14 +32,14 @@
 }
 
 .video-comparison-savings {
-  display: grid;
-  gap: 1px;
-  min-width: 6.75rem;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
   border: var(--rule-hair) solid color-mix(in oklab, var(--color-success) 22%, var(--color-rule));
   border-radius: var(--radius-control);
   background: color-mix(in oklab, white 64%, var(--color-success-soft));
-  text-align: right;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
@@ -66,9 +63,9 @@
 
 .video-comparison-savings.is-increase strong { color: var(--color-warning); }
 
-.video-comparison-close {
-  width: 3.5rem;
-  height: 3.5rem;
+.ffmpeg-dialog-header .video-comparison-close {
+  width: 3rem;
+  height: 3rem;
   border: 0;
   background: transparent;
 }
@@ -83,7 +80,6 @@
 
 .comparison-stage {
   position: relative;
-  width: min(100%, 110dvh);
   max-width: 100%;
   overflow: hidden;
   isolation: isolate;
@@ -179,24 +175,27 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  width: 44px;
-  height: 44px;
+  width: 30px;
+  height: 46px;
   transform: translate(-50%, -50%);
-  border: 1px solid oklch(100% 0 0 / 0.7);
-  border-radius: 50%;
-  background: oklch(15% 0.02 285 / 0.82);
+  border: 0;
+  border-radius: 999px;
+  background: white;
   box-shadow:
-    0 5px 20px oklch(0% 0 0 / 0.35),
-    inset 0 1px 0 oklch(100% 0 0 / 0.24);
-  backdrop-filter: blur(12px);
+    0 6px 18px oklch(0% 0 0 / 0.32),
+    0 0 0 4px oklch(100% 0 0 / 0.16);
+  cursor: ew-resize;
 }
 
 .comparison-divider-handle i {
-  width: 2px;
-  height: 14px;
-  border-radius: 2px;
-  background: oklch(100% 0 0 / 0.9);
+  width: 6px;
+  height: 6px;
+  border: solid oklch(22% 0.02 285);
+  border-width: 0 0 2px 2px;
 }
+
+.comparison-divider-handle i:first-child { transform: rotate(45deg) translateX(-1px); }
+.comparison-divider-handle i:last-child { transform: rotate(-135deg) translateX(-1px); }
 
 .comparison-center-play {
   position: absolute;
@@ -220,8 +219,6 @@
     background-color var(--dur-short) var(--ease-out);
 }
 
-.comparison-center-play svg { margin-left: 3px; }
-
 .comparison-center-play:active { transform: translate(-50%, -50%) scale(0.96); }
 
 .comparison-error {
@@ -242,7 +239,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  width: min(100%, 110dvh);
   min-height: 3.25rem;
   padding: 0 var(--space-xs);
   color: var(--color-ink-2);
@@ -301,13 +297,6 @@
 
 .comparison-sound-button.is-muted { color: var(--color-muted); }
 .comparison-sound-button svg { flex: 0 0 auto; }
-
-.comparison-hint {
-  width: min(100%, 110dvh);
-  color: var(--color-muted);
-  font-size: var(--text-xs);
-  text-align: center;
-}
 
 @media (hover: hover) and (pointer: fine) {
   .comparison-center-play:hover {

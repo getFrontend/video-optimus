@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import playPause from "react-useanimations/lib/playPause";
 import xSquare from "react-useanimations/lib/xSquare";
 import type { VideoJob } from "../types";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { formatDuration, formatSize } from "../lib/format";
+import { useComparisonMediaAccess } from "../hooks/useComparisonMediaAccess";
 import { useSynchronizedVideoPlayer } from "../hooks/useSynchronizedVideoPlayer";
 import { AnimatedIcon } from "./AnimatedIcon";
 import { ComparisonWipe } from "./ComparisonWipe";
@@ -42,6 +44,8 @@ export function VideoComparisonDialog({
     loadSourceMetadata,
     setMediaError,
   } = useSynchronizedVideoPlayer();
+  const media = useComparisonMediaAccess(displayedJob?.id ?? null);
+  const errorMessage = mediaError ?? media.error;
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -116,7 +120,8 @@ export function VideoComparisonDialog({
 
   if (!mounted || !displayedJob) return null;
 
-  const savedBytes = (displayedJob.outputSize ?? 0) - displayedJob.sourceSize;
+  const savedBytes = displayedJob.sourceSize - (displayedJob.outputSize ?? 0);
+  const isReduced = savedBytes > 0;
   const savedPercent = displayedJob.sourceSize > 0
     ? Math.round((savedBytes / displayedJob.sourceSize) * 100)
     : 0;
@@ -125,8 +130,9 @@ export function VideoComparisonDialog({
   const videoRatio = displayedJob.metadata.width > 0 && displayedJob.metadata.height > 0
     ? displayedJob.metadata.width / displayedJob.metadata.height
     : 16 / 9;
-  const playerWidth = `min(100%, ${videoRatio * 62}dvh)`;
-  const controlWidth = `min(100%, max(${videoRatio * 62}dvh, 22rem))`;
+  const playerHeight = "min(76dvh, calc(100dvh - 17rem))";
+  const playerWidth = `min(100%, calc(${playerHeight} * ${videoRatio}))`;
+  const controlWidth = `min(100%, calc(${playerHeight} * 16 / 9))`;
 
   return (
     <div
@@ -143,20 +149,18 @@ export function VideoComparisonDialog({
         aria-labelledby="video-comparison-title"
       >
         <header className="ffmpeg-dialog-header video-comparison-header">
-          <div className="video-comparison-title">
-            <div>
-              <span className="ffmpeg-dialog-eyebrow">ОРИГІНАЛ · ОПТИМІЗОВАНО · ПОРІВНЯННЯ 1:1</span>
-              <h2 id="video-comparison-title">Побачте різницю</h2>
-              <p className="video-comparison-filename" title={displayedJob.path}>
-                {displayedJob.fileName}
-              </p>
-            </div>
-          </div>
+          <p
+            id="video-comparison-title"
+            className="video-comparison-filename"
+            title={displayedJob.path}
+          >
+            {displayedJob.fileName}
+          </p>
           <div className="video-comparison-header-end">
             {displayedJob.outputSize != null && (
-              <span className={`video-comparison-savings${savedBytes >= 0 ? " is-saving" : " is-increase"}`}>
-                <strong>{savedBytes >= 0 ? "−" : "+"}{Math.abs(savedPercent)}%</strong>
-                <small>{formatSize(Math.abs(savedBytes))} {savedBytes >= 0 ? "заощаджено" : "різниця"}</small>
+              <span className={`video-comparison-savings${isReduced ? " is-saving" : " is-increase"}`}>
+                <strong>{isReduced ? "−" : "+"}{Math.abs(savedPercent)}%</strong>
+                <small>{formatSize(Math.abs(savedBytes))} {isReduced ? "заощаджено" : "більше"}</small>
               </span>
             )}
             <button
@@ -166,7 +170,7 @@ export function VideoComparisonDialog({
               aria-label="Закрити порівняння"
               onClick={closeDialog}
             >
-              <AnimatedIcon animation={xSquare} interaction="hover-replay" size={54} />
+              <AnimatedIcon animation={xSquare} interaction="hover-replay" size={44} />
             </button>
           </div>
         </header>
@@ -177,7 +181,7 @@ export function VideoComparisonDialog({
             onSplit={setSplit}
             aspectRatio={videoRatio}
             width={playerWidth}
-            overlay={!playing && !mediaError ? (
+            overlay={media.ready && !playing && !errorMessage ? (
               <button
                 className="comparison-center-play"
                 type="button"
@@ -185,16 +189,16 @@ export function VideoComparisonDialog({
                 aria-label="Відтворити обидва відео"
                 onClick={() => void togglePlayback()}
               >
-                <Icon name="play" size={30} />
+                <AnimatedIcon animation={playPause} active={playing} size={30} />
               </button>
-            ) : mediaError ? (
-              <div className="comparison-error" role="alert">{mediaError}</div>
+            ) : errorMessage ? (
+              <div className="comparison-error" role="alert">{errorMessage}</div>
             ) : null}
           >
             <video
               ref={sourceVideoRef}
               className="comparison-video"
-              src={sourceUrl}
+              src={media.ready ? sourceUrl : undefined}
               preload="metadata"
               playsInline
               muted={muted}
@@ -215,7 +219,7 @@ export function VideoComparisonDialog({
               <video
                 ref={optimizedVideoRef}
                 className="comparison-video"
-                src={optimizedUrl}
+                src={media.ready ? optimizedUrl : undefined}
                 preload="metadata"
                 playsInline
                 muted
@@ -236,7 +240,7 @@ export function VideoComparisonDialog({
               aria-label={playing ? "Призупинити відео" : "Відтворити відео"}
               onClick={() => void togglePlayback()}
             >
-              <Icon name={playing ? "pause" : "play"} size={22} />
+              <AnimatedIcon animation={playPause} active={playing} size={22} />
             </button>
             <span className="comparison-time">{formatDuration(currentTime)}</span>
             <input
@@ -260,10 +264,6 @@ export function VideoComparisonDialog({
               <span>{muted ? "ЗВУК ВИМКНЕНО" : "ЗВУК ОРИГІНАЛУ"}</span>
             </button>
           </div>
-
-          <p className="comparison-hint" style={{ width: controlWidth }}>
-            Перетягніть межу або скористайтеся клавішами зі стрілками, щоб порівняти деталі кадру.
-          </p>
         </div>
       </section>
     </div>

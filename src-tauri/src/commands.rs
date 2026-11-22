@@ -10,7 +10,7 @@ use std::{
     path::PathBuf,
     time::UNIX_EPOCH,
 };
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
 pub async fn initialize(app: AppHandle, state: State<'_, AppState>) -> Result<AppSnapshot, String> {
@@ -122,6 +122,41 @@ pub async fn remove_video_preview(
     job_id: String,
 ) -> Result<(), String> {
     crate::preview::remove_preview(&app, &state, &preview_id, &job_id).await
+}
+
+#[tauri::command]
+pub async fn allow_comparison_media(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    job_id: String,
+) -> Result<(), String> {
+    let (source, output) = {
+        let jobs = state.jobs.read().await;
+        let job = jobs
+            .iter()
+            .find(|job| job.id == job_id)
+            .ok_or_else(|| "Завдання не знайдено.".to_string())?;
+        let output = job
+            .output_path
+            .as_ref()
+            .ok_or_else(|| "Оптимізований файл відсутній.".to_string())?;
+        (PathBuf::from(&job.path), PathBuf::from(output))
+    };
+
+    if !source.is_file() {
+        return Err("Оригінальне відео не знайдено. Можливо, його видалено або переміщено.".to_string());
+    }
+    if !output.is_file() {
+        return Err("Оптимізоване відео не знайдено. Можливо, його видалено або переміщено.".to_string());
+    }
+
+    app.asset_protocol_scope()
+        .allow_file(&source)
+        .map_err(|error| format!("Не вдалося відкрити оригінал: {error}"))?;
+    app.asset_protocol_scope()
+        .allow_file(&output)
+        .map_err(|error| format!("Не вдалося відкрити оптимізоване відео: {error}"))?;
+    Ok(())
 }
 
 #[tauri::command]

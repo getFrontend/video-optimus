@@ -15,10 +15,10 @@ type EstimateRange = {
 };
 
 const QUALITY_RANGES: Record<QualityProfile, [number, number]> = {
-  near_original: [0.75, 1.15],
-  high: [0.55, 0.9],
-  balanced: [0.4, 0.75],
-  compact: [0.25, 0.55],
+  near_original: [0.6, 0.95],
+  high: [0.35, 0.65],
+  balanced: [0.15, 0.45],
+  compact: [0.1, 0.28],
 };
 
 const MODE_RANGES: Record<CompressionMode, [number, number]> = {
@@ -61,7 +61,7 @@ export function estimateOutputSize(
   const duration = metadata.durationSeconds;
   if (!Number.isFinite(duration) || duration <= 0) return profileEstimate;
 
-  const audioBitrate = audioBitrateFromSource(metadata);
+  const audioBitrate = outputAudioBitrate(mode, metadata);
   if (audioBitrate == null) return profileEstimate;
   const videoBitrate = metadata.videoBitrate ?? (
     metadata.bitrate == null ? null : Math.max(0, metadata.bitrate - audioBitrate)
@@ -266,4 +266,16 @@ function audioBitrateFromSource(metadata: VideoMetadata): number | null {
     return null;
   }
   return audioBitrates.reduce<number>((total, bitrate) => total + (bitrate ?? 0), 0);
+}
+
+function outputAudioBitrate(mode: CompressionMode, metadata: VideoMetadata): number | null {
+  if (mode !== "smart") {
+    return audioBitrateFromSource(metadata);
+  }
+  const cap = metadata.audioTracks * 128_000;
+  const source = audioBitrateFromSource(metadata);
+  if (source == null) {
+    return cap;
+  }
+  return Math.min(source, cap);
 }

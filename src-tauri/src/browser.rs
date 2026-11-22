@@ -58,8 +58,8 @@ async fn default_browser_process(url: &str) -> Result<(), String> {
         .await
         .ok_or("Не вдалося визначити команду браузера за замовчуванням.")?;
 
-    let (executable, arguments) =
-        parse_browser_command(&command_line, url).ok_or("Не вдалося розібрати команду браузера.")?;
+    let (executable, arguments) = parse_browser_command(&command_line, url)
+        .ok_or("Не вдалося розібрати команду браузера.")?;
 
     hidden_console(tokio::process::Command::new(executable))
         .args(arguments)
