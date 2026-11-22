@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import github from "react-useanimations/lib/github";
+import linkedin from "react-useanimations/lib/linkedin";
 import sidebar from "react-useanimations/lib/sidebar";
 import packageInfo from "../package.json";
 import { BrandMark } from "./components/BrandMark";
@@ -10,11 +13,13 @@ import { Icon, type IconName } from "./components/Icon";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { SettingsScrollbar } from "./components/SettingsScrollbar";
 import { SystemPanel } from "./components/SystemPanel";
+import { VideoComparisonDialog } from "./components/VideoComparisonDialog";
 import { VideoWorkspace } from "./components/VideoWorkspace";
 import { WindowControls } from "./components/WindowControls";
 import { useOptimizer, type NoticeType } from "./hooks/useOptimizer";
 import { formatSize } from "./lib/format";
 import { isSuccessfulJob } from "./lib/jobs";
+import type { VideoJob } from "./types";
 
 const noticeIcons = {
   info: "info",
@@ -28,6 +33,9 @@ export default function App() {
   const [ffmpegHelpOpen, setFfmpegHelpOpen] = useState(false);
   const [customSettingsOpen, setCustomSettingsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(true);
+  const [comparisonJob, setComparisonJob] = useState<
+    (VideoJob & { outputPath: string }) | null
+  >(null);
   const settingsToggleRef = useRef<HTMLButtonElement>(null);
   const settingsCloseRef = useRef<HTMLButtonElement>(null);
   const settingsScrollRef = useRef<HTMLDivElement>(null);
@@ -42,6 +50,14 @@ export default function App() {
   const checkingRuntime = optimizer.checkingRuntime && optimizer.desktop;
   const pendingCount = jobs.filter((job) => job.status === "pending").length;
   const completedCount = jobs.filter(isSuccessfulJob).length;
+
+  const openSocialLink = (event: MouseEvent<HTMLAnchorElement>, site: "github" | "linkedin") => {
+    if (!isTauri()) return;
+    event.preventDefault();
+    void invoke("open_social_link", { site }).catch((error: unknown) => {
+      optimizer.showNotice(String(error), "error");
+    });
+  };
 
   return (
     <main
@@ -61,7 +77,7 @@ export default function App() {
           void getCurrentWindow().startDragging();
         }}
         onDoubleClick={(event) => {
-          if (!optimizer.desktop || (event.target as HTMLElement).closest(".window-controls")) return;
+          if (!optimizer.desktop || (event.target as HTMLElement).closest(".window-controls, a")) return;
           void getCurrentWindow().toggleMaximize();
         }}
       >
@@ -72,6 +88,30 @@ export default function App() {
             v{packageInfo.version}
           </span>
         </div>
+        <nav className="social-links" aria-label="Соціальні мережі">
+          <a
+            className="social-link"
+            href="https://github.com/getFrontend/video-optimus"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Video Optimus на GitHub"
+            title="GitHub"
+            onClick={(event) => openSocialLink(event, "github")}
+          >
+            <AnimatedIcon animation={github} interaction="loop" size={22} />
+          </a>
+          <a
+            className="social-link"
+            href="https://www.linkedin.com/in/getfrontend/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="LinkedIn"
+            title="LinkedIn"
+            onClick={(event) => openSocialLink(event, "linkedin")}
+          >
+            <AnimatedIcon animation={linkedin} interaction="hover-loop" size={22} />
+          </a>
+        </nav>
         <div className="topbar-right">
           <span className={`runtime-pill${checkingRuntime ? " is-checking" : optimizer.snapshot?.runtime.ready ? " is-ready" : " is-missing"}`}>
             {checkingRuntime
@@ -127,6 +167,9 @@ export default function App() {
               jobs={jobs}
               pendingCount={pendingCount}
               completedCount={completedCount}
+              onCompare={(job) => {
+                if (isSuccessfulJob(job)) setComparisonJob(job);
+              }}
             />
 
             <aside
@@ -232,6 +275,11 @@ export default function App() {
       <FfmpegSetupDialog
         open={ffmpegHelpOpen}
         onClose={() => setFfmpegHelpOpen(false)}
+      />
+
+      <VideoComparisonDialog
+        job={comparisonJob}
+        onClose={() => setComparisonJob(null)}
       />
 
       {optimizer.notice && (

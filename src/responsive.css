@@ -15,6 +15,7 @@
   .workspace-nav { top: 0; }
 }
 @media (max-width: 40rem) {
+  .social-links { display: none; }
   .page-content { padding-top: var(--space-lg); }
   .welcome-copy h1 { font-size: clamp(2rem, 9vw, 2.5rem); }
   .welcome-stats { justify-content: space-between; gap: var(--space-sm); width: 100%; }
@@ -38,15 +39,27 @@
   .bulk-toolbar .button { flex: 1 1 100%; }
   .queue-item { grid-template-columns: 2rem 4rem minmax(0, 1fr) auto; gap: var(--space-sm); padding-block: var(--space-md); }
   .queue-item:not(.has-estimate) { grid-template-columns: 2rem 4rem minmax(0, 1fr) auto; }
+  .queue-item.is-single { grid-template-columns: 4rem minmax(0, 1fr) auto; }
+  .queue-item.is-single:not(.has-estimate) { grid-template-columns: 4rem minmax(0, 1fr) auto; }
   .queue-grip { grid-column: 1; grid-row: 1 / span 3; align-self: start; margin-top: var(--space-2xs); }
   .file-mark { grid-column: 2; grid-row: 1; justify-self: start; }
   .queue-main { grid-column: 3; grid-row: 2; }
+  .queue-item.is-single .file-mark { grid-column: 1; grid-row: 1; }
+  .queue-item.is-single .queue-main { grid-column: 2; grid-row: 1; }
+  .queue-progress { grid-template-columns: minmax(0, 1fr); padding-inline: var(--space-sm); }
+  .progress-details { justify-content: flex-start; }
   .queue-estimate { grid-column: 3; grid-row: 3; margin-top: var(--space-xs); }
+  .queue-item.is-single .queue-estimate { grid-column: 2; grid-row: 2; }
   .queue-actions { grid-column: 4; grid-row: 1 / span 3; align-self: center; flex-direction: column; }
+  .queue-item.is-single .queue-actions { grid-column: 3; grid-row: 1 / span 3; }
+  .queue-progress { align-items: flex-start; }
   .queue-footer { align-items: stretch; flex-direction: column; gap: var(--space-sm); }
   .queue-footer-actions { align-items: stretch; flex-direction: column; gap: var(--space-sm); }
   .queue-footer-actions .button { width: 100%; }
   .queue-run-button { width: 100%; }
+  .queue-footer.is-single { align-items: center; }
+  .queue-footer.is-single .queue-footer-actions { align-items: center; flex-direction: row; justify-content: center; }
+  .queue-footer.is-single .queue-run-button { width: min(36rem, 100%); min-height: 6rem; }
   .settings-drawer { top: 0; z-index: var(--z-modal); width: min(var(--settings-drawer-width), 100vw); }
   .system-details-overlay { top: 0; }
   .preview-backdrop { padding: 0; }
@@ -66,7 +79,6 @@
   .workspace-tab-content { scroll-margin-top: 6rem; }
   .drop-actions { align-items: stretch; flex-direction: column; }
   .drop-actions .button { width: 100%; }
-  .queue-progress { align-items: flex-start; }
 }
 @media (pointer: coarse) {
   .button { min-height: 2.75rem; }

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import trash2 from "react-useanimations/lib/trash2";
 import completedEmptyAnimation from "../assets/completed-empty.gif";
 import completedEmptyStill from "../assets/completed-empty-still.png";
 import processingEmptyAnimation from "../assets/processing-empty.gif";
 import processingEmptyStill from "../assets/processing-empty-still.png";
+import { AnimatedIcon } from "./AnimatedIcon";
 import { DropZone } from "./DropZone";
 import { Icon } from "./Icon";
 import { QueueItem } from "./QueueItem";
@@ -40,11 +42,13 @@ export function VideoWorkspace({
   jobs,
   pendingCount,
   completedCount,
+  onCompare,
 }: {
   optimizer: ReturnType<typeof useOptimizer>;
   jobs: VideoJob[];
   pendingCount: number;
   completedCount: number;
+  onCompare: (job: VideoJob) => void;
 }) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("add");
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
@@ -70,11 +74,17 @@ export function VideoWorkspace({
       job.status !== "skipped" &&
       !ACTIVE.includes(job.status),
   );
+  const isSingleProcessingJob =
+    activeTab === "processing" && processingJobs.length === 1;
   const bulk = useBulkQueueSelection(jobs, optimizer.startSelectedJobs);
-  const selectedPendingCount = bulk.selectedJobs.filter((job) => job.status === "pending").length;
-  const selectedRetryableCount = bulk.selectedJobs.filter(
-    (job) => ["failed", "cancelled", "interrupted"].includes(job.status),
-  ).length;
+  const selectedPendingCount = isSingleProcessingJob
+    ? 0
+    : bulk.selectedJobs.filter((job) => job.status === "pending").length;
+  const selectedRetryableCount = isSingleProcessingJob
+    ? 0
+    : bulk.selectedJobs.filter(
+      (job) => ["failed", "cancelled", "interrupted"].includes(job.status),
+    ).length;
   const queueRunning = optimizer.snapshot?.queueRunning ?? false;
   const pendingIndex = useMemo(() => {
     let position = 0;
@@ -85,7 +95,7 @@ export function VideoWorkspace({
     pendingCount > 0 ||
     optimizer.snapshot?.queuePaused ||
     optimizer.snapshot?.queueRunning ||
-    bulk.selectedJobs.length > 0,
+    (!isSingleProcessingJob && bulk.selectedJobs.length > 0),
   );
   const animateAddEntrance = !hasShownAddEntrance.current;
 
@@ -99,6 +109,10 @@ export function VideoWorkspace({
   useEffect(() => {
     if (activeTab === "add") hasShownAddEntrance.current = true;
   }, [activeTab]);
+
+  useEffect(() => {
+    if (isSingleProcessingJob && bulk.selectedJobs.length > 0) bulk.clear();
+  }, [bulk.clear, bulk.selectedJobs.length, isSingleProcessingJob]);
 
   useEffect(() => {
     if (!hasSnapshot) return;
@@ -196,7 +210,10 @@ export function VideoWorkspace({
           key={job.id}
           job={job}
           settings={optimizer.settings}
+          onCompare={onCompare}
           index={pendingIndex.get(job.id) ?? -1}
+          showDragHandle={!isSingleProcessingJob && job.status === "pending"}
+          isSingle={isSingleProcessingJob}
           isDragging={draggedJobId === job.id}
           isDropTarget={dropTargetId === job.id && draggedJobId !== job.id}
           onReorder={reorderJob}
@@ -207,6 +224,7 @@ export function VideoWorkspace({
           onRemove={optimizer.removeJob}
           onRetry={optimizer.retryJob}
           selectable={
+            !isSingleProcessingJob &&
             SELECTABLE_STATUSES.includes(job.status) &&
             !queueRunning
           }
@@ -231,6 +249,28 @@ export function VideoWorkspace({
             selectedCount={bulk.selectedJobs.length}
             onClear={bulk.clear}
           />
+        ) : activeTab === "completed" && completedCount > 0 ? (
+          <div className="bulk-toolbar" role="toolbar" aria-label="Дії з готовими відео">
+            <AnimatedIcon
+              animation={trash2}
+              interaction="hover"
+              size={28}
+              render={(eventProps, animationProps) => (
+                <button
+                  {...eventProps}
+                  className="button button-secondary bulk-clear-selection"
+                  type="button"
+                  onClick={(event) => {
+                    eventProps.onClick(event);
+                    optimizer.clearCompleted();
+                  }}
+                >
+                  <span {...animationProps} />
+                  Очистити готові
+                </button>
+              )}
+            />
+          </div>
         ) : null}
       />
 
@@ -255,14 +295,16 @@ export function VideoWorkspace({
 
         {activeTab === "processing" && (
           <section className="queue-panel" aria-label="Обробка відео" ref={queuePanelRef}>
-            {processingJobs.length > 0 && (
+            {(processingJobs.length > 1 || activeJob) && (
               <div className="queue-heading">
-                <div className="queue-sequence-heading">
-                  <Icon name="clock" size={20} />
-                  <strong>Послідовна обробка</strong>
-                  <span aria-hidden="true">·</span>
-                  <span>Одне відео за раз</span>
-                </div>
+                {processingJobs.length > 1 && (
+                  <div className="queue-sequence-heading">
+                    <Icon name="clock" size={20} />
+                    <strong>Послідовна обробка</strong>
+                    <span aria-hidden="true">·</span>
+                    <span>Одне відео за раз</span>
+                  </div>
+                )}
                 <div className="queue-heading-actions">
                   {activeJob && (
                     <button className="button button-quiet button-cancel" type="button" onClick={optimizer.cancelCurrent}>
@@ -306,46 +348,51 @@ export function VideoWorkspace({
                 )}
                 {attentionJobs.length > 0 && (
                   <section className="queue-group" aria-label="Інші незавершені відео">
-                    <h3>Потребують уваги <span>{attentionJobs.length}</span></h3>
+                    {processingJobs.length > 1 && (
+                      <h3>Потребують уваги <span>{attentionJobs.length}</span></h3>
+                    )}
                     {renderJobs(attentionJobs)}
                   </section>
                 )}
                 {queueActionReady && (
-                  <footer className="queue-footer">
+                  <footer className={`queue-footer${isSingleProcessingJob ? " is-single" : ""}`}>
                     <div className="queue-footer-actions">
-                      {(pendingCount > 0 || bulk.selectedJobs.length > 0) && (
-                        <button
-                          className="button button-cancel-pending"
-                          type="button"
-                          aria-label={bulk.selectedJobs.length > 0
-                            ? "Вилучити вибрані відео з черги"
-                            : "Вилучити всі відео в очікуванні"}
-                          onClick={async () => {
-                            const selectedIds = bulk.selectedJobs.map((job) => job.id);
-                            const removed = await optimizer.removeQueuedJobs(
-                              selectedIds.length > 0 ? selectedIds : null,
-                            );
-                            if (removed) bulk.clear();
-                          }}
-                        >
-                          <Icon name="queueRemove" size={17} />
-                          {bulk.selectedJobs.length > 0 ? "Скасувати обрані" : "Скасувати всі"}
-                        </button>
-                      )}
+                      {!isSingleProcessingJob &&
+                        (pendingCount > 0 || bulk.selectedJobs.length > 0) && (
+                          <button
+                            className="button button-cancel-pending"
+                            type="button"
+                            aria-label={bulk.selectedJobs.length > 0
+                              ? "Вилучити вибрані відео з черги"
+                              : "Вилучити всі відео в очікуванні"}
+                            onClick={async () => {
+                              const selectedIds = bulk.selectedJobs.map((job) => job.id);
+                              const removed = await optimizer.removeQueuedJobs(
+                                selectedIds.length > 0 ? selectedIds : null,
+                              );
+                              if (removed) bulk.clear();
+                            }}
+                          >
+                            <Icon name="queueRemove" size={17} />
+                            {bulk.selectedJobs.length > 0 ? "Скасувати обрані" : "Скасувати всі"}
+                          </button>
+                        )}
                       <button
-                        className="button button-primary queue-run-button"
+                        className={`button button-primary queue-run-button${isSingleProcessingJob ? " queue-run-button-single" : ""}`}
                         type="button"
                         disabled={!optimizer.desktop || !optimizer.snapshot?.runtime.ready}
                         onClick={() => {
                           if (optimizer.snapshot?.queuePaused) optimizer.startQueue();
                           else if (optimizer.snapshot?.queueRunning) optimizer.stopQueue();
-                          else if (bulk.selectedJobs.length > 0) void bulk.startSelected();
+                          else if (!isSingleProcessingJob && bulk.selectedJobs.length > 0) {
+                            void bulk.startSelected();
+                          }
                           else optimizer.startQueue();
                         }}
                       >
                         <Icon
                           name={optimizer.snapshot?.queueRunning && !optimizer.snapshot?.queuePaused ? "pause" : "play"}
-                          size={17}
+                          size={isSingleProcessingJob ? 34 : 17}
                         />
                         {optimizer.snapshot?.queuePaused
                           ? "Продовжити обробку"
@@ -369,18 +416,6 @@ export function VideoWorkspace({
 
         {activeTab === "completed" && (
           <section className="queue-panel">
-            {completedCount > 0 && (
-              <div className="queue-heading">
-                <h2>
-                  Готові відео
-                  <span className="queue-count">{completedCount}</span>
-                </h2>
-                <button className="button button-quiet" type="button" onClick={optimizer.clearCompleted}>
-                  <Icon name="trash" size={16} />
-                  Очистити готові
-                </button>
-              </div>
-            )}
             {completedCount > 0 ? (
               renderJobs(jobs.filter(isSuccessfulJob))
             ) : (

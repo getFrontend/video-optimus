@@ -1,0 +1,29 @@
+@media (max-width: 48rem) {
+  .video-comparison-dialog {
+    width: 100%;
+    max-height: 94dvh;
+  }
+
+  .video-comparison-header {
+    gap: var(--space-xs);
+    padding: var(--space-md);
+  }
+
+  .video-comparison-title h2 { font-size: var(--text-lg); }
+  .video-comparison-filename { max-width: 44vw; font-size: var(--text-xs); }
+  .video-comparison-header-end { gap: var(--space-2xs); }
+  .video-comparison-savings { min-width: 0; padding: 6px var(--space-xs); }
+  .video-comparison-savings small { font-size: 0.62rem; }
+  .video-comparison-close { width: 2.75rem; height: 2.75rem; }
+  .video-comparison-close [data-useanimations] { transform: scale(0.78); }
+  .video-comparison-content { gap: var(--space-xs); padding: var(--space-sm); }
+  .comparison-side-label { top: var(--space-xs); }
+  .comparison-side-label--original { left: var(--space-xs); }
+  .comparison-side-label--optimized { right: var(--space-xs); }
+  .comparison-side-label span { padding: 5px 7px; font-size: 0.57rem; }
+  .comparison-controls { gap: var(--space-2xs); min-height: 2.75rem; }
+  .comparison-time { min-width: 2.8rem; font-size: 0.72rem; }
+  .comparison-sound-button { width: 42px; padding: 0; }
+  .comparison-sound-button span { display: none; }
+  .comparison-hint { font-size: 0.72rem; }
+}

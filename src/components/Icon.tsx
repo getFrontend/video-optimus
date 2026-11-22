@@ -17,6 +17,12 @@ const shapes = {
   compress: (
     <path d="m9 9-4.2-4.2M9 9H5.6M9 9V5.6m6 3.4 4.2-4.2M15 9h3.4M15 9V5.6M9 15l-4.2 4.2M9 15H5.6M9 15v3.4m6-3.4 4.2 4.2M15 15h3.4M15 15v3.4" />
   ),
+  compare: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.2" />
+      <path d="M12 4.8v14.4m-3.7-9-1.8 1.8 1.8 1.8m7.4-3.6 1.8 1.8-1.8 1.8" />
+    </>
+  ),
   cpu: (
     <>
       <rect x="6" y="6" width="12" height="12" rx="2.2" />
@@ -87,12 +93,6 @@ const shapes = {
       <path d="m10 8.1 6.2 3.9-6.2 3.9V8.1Z" />
     </>
   ),
-  refresh: (
-    <>
-      <path d="M16.8 9.2A6 6 0 1 0 18 12" />
-      <path d="M18 12V8.8m0 0h-3.2" />
-    </>
-  ),
   restore: (
     <>
       <path d="M8 8V5.5h10.5V16H16" />
@@ -112,6 +112,18 @@ const shapes = {
       <path d="m10.3 4.3-7.5 13a2.1 2.1 0 0 0 1.8 3.1h15a2.1 2.1 0 0 0 1.8-3.1l-7.5-13a2.1 2.1 0 0 0-3.6 0Z" />
       <path d="M12 8.6v4.8" />
       <circle cx="12" cy="16.7" r=".55" fill="currentColor" stroke="none" />
+    </>
+  ),
+  volume: (
+    <>
+      <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+      <path d="M16 9a4.2 4.2 0 0 1 0 6m2.4-8.4a7.5 7.5 0 0 1 0 10.8" />
+    </>
+  ),
+  volumeOff: (
+    <>
+      <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+      <path d="m17 9 4 6m0-6-4 6" />
     </>
   ),
 } satisfies Record<string, ReactNode>;

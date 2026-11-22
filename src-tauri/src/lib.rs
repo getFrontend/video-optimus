@@ -1,3 +1,4 @@
+mod browser;
 mod commands;
 mod encoding;
 mod environment;
@@ -45,6 +46,7 @@ pub fn run() {
             commands::remove_queued_jobs,
             commands::clear_completed,
             commands::update_settings,
+            commands::open_social_link,
             commands::open_path,
         ])
         .run(tauri::generate_context!())

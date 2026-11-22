@@ -306,6 +306,16 @@ pub async fn update_settings(
 }
 
 #[tauri::command]
+pub async fn open_social_link(site: String) -> Result<(), String> {
+    let url = match site.as_str() {
+        "github" => "https://github.com/getFrontend/video-optimus",
+        "linkedin" => "https://www.linkedin.com/in/getfrontend/",
+        _ => return Err("Невідоме посилання.".to_string()),
+    };
+    crate::browser::open_in_default_browser(url).await
+}
+
+#[tauri::command]
 pub async fn open_path(path: String, reveal: bool) -> Result<(), String> {
     let path = PathBuf::from(path);
     if !path.exists() {
