@@ -2,6 +2,34 @@
 
 A local Windows application for analyzing and sequentially compressing videos. The interface uses React + TypeScript, the desktop shell and queue processor use Tauri 2 + Rust, and encoding is performed by FFmpeg as a separate process.
 
+Локальний застосунок для Windows, який аналізує відео та послідовно стискає їх. Інтерфейс написано на React + TypeScript, десктопна оболонка та обробник черги працюють на Tauri 2 + Rust, а кодування виконує FFmpeg як окремий процес.
+
+## Screenshots
+
+### Processing queue
+
+![Processing queue](assets/screenshots/video-optimus_demo_3.png)
+
+The queue shows the current job with actual FFmpeg progress, speed, and estimated time remaining. The side panel applies mode, quality, target size, and export folder settings to videos that are still waiting.
+
+Черга показує поточне завдання з реальним прогресом FFmpeg, швидкістю та орієнтовним часом до завершення. Бічна панель застосовує режим, якість, цільовий розмір і теку експорту до відео, які ще очікують обробки.
+
+### Completed results
+
+![Completed results](assets/screenshots/video-optimus_demo_4.png)
+
+Each finished file shows its size reduction, the codec used, and quick actions for comparison, opening the folder, and removing it from the list. Original files stay unchanged.
+
+Кожен готовий файл показує зменшення розміру, використаний кодек і швидкі дії: порівняння, відкриття теки та видалення зі списку. Оригінальні файли залишаються без змін.
+
+### Custom encoding parameters
+
+![Custom encoding parameters](assets/screenshots/video-optimus_custom_settings.png)
+
+Custom mode lets you choose the video codec, speed preset, audio codec, container, encoding method (QSV or CPU), and video bitrate. An empty bitrate field uses the quality profile, and the estimate accounts for codec, device, preset, and audio.
+
+Власний режим дає змогу вибрати відеокодек, пресет швидкості, аудіокодек, контейнер, спосіб кодування (QSV або CPU) і бітрейт відео. Порожнє поле бітрейту використовує профіль якості, а прогноз враховує кодек, пристрій, пресет і аудіо.
+
 ## Development
 
 Requirements: Node.js 20+, Rust stable with the `x86_64-pc-windows-msvc` target, Microsoft C++ Build Tools with the Windows SDK, and the WebView2 Runtime.
